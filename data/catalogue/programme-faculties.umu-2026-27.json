@@ -1,0 +1,93 @@
+{
+  "meta": {
+    "status": "assigned-by-project",
+    "approval": "pending UMU confirmation",
+    "source": "Faculty and school headings in the UMU Courses 2026-2027 brochure, pages 7-11",
+    "note": "Each programme belongs to exactly one faculty. The two umbrella entries (umu-diplomas-certs, umu-postgraduates) span faculties, so they have no faculty: they cannot be chosen by applicants and only the registrar can see them. Faculty administrators see an applicant only through the faculty of the programmes the applicant applied to."
+  },
+  "faculties": [
+    {
+      "id": "agriculture-environment",
+      "name": "Faculty of Agriculture and Environment"
+    },
+    {
+      "id": "business-administration-management",
+      "name": "Faculty of Business Administration and Management"
+    },
+    {
+      "id": "built-environment",
+      "name": "Faculty of the Built Environment"
+    },
+    {
+      "id": "education",
+      "name": "Faculty of Education"
+    },
+    {
+      "id": "law",
+      "name": "Faculty of Law"
+    },
+    {
+      "id": "science",
+      "name": "Faculty of Science"
+    },
+    {
+      "id": "arts-social-sciences",
+      "name": "School of Arts and Social Sciences"
+    },
+    {
+      "id": "health-sciences",
+      "name": "Faculty of Health Sciences"
+    },
+    {
+      "id": "engineering-applied-sciences",
+      "name": "Faculty of Engineering and Applied Sciences"
+    },
+    {
+      "id": "mother-kevin-postgraduate-medical-school",
+      "name": "Mother Kevin Postgraduate Medical School"
+    },
+    {
+      "id": "graduate-studies-research-enterprise",
+      "name": "Directorate of Graduate Studies, Research and Enterprise"
+    }
+  ],
+  "programmes": {
+    "umu-bagric": "agriculture-environment",
+    "umu-bsc-agric": "agriculture-environment",
+    "umu-bsc-eco-organic": "agriculture-environment",
+    "umu-agecon-agribiz": "agriculture-environment",
+    "umu-bsc-agri-tech": "agriculture-environment",
+    "umu-bbam": "business-administration-management",
+    "umu-procurement-scm": "business-administration-management",
+    "umu-intl-business": "business-administration-management",
+    "umu-acct-finance": "business-administration-management",
+    "umu-microfinance-ced": "business-administration-management",
+    "umu-econ-nrm": "business-administration-management",
+    "umu-real-estate": "business-administration-management",
+    "umu-acct-fin-cpa": "business-administration-management",
+    "umu-env-design": "built-environment",
+    "umu-ba-education": "education",
+    "umu-bsc-education": "education",
+    "umu-bsc-educ-agri": "education",
+    "umu-bed-ecd": "education",
+    "umu-inclusive-deaf-educ": "education",
+    "umu-bed-primary": "education",
+    "umu-heac": "education",
+    "umu-bsc-cs": "science",
+    "umu-econ-stats": "science",
+    "umu-bsc-it": "science",
+    "umu-bsc-general": "science",
+    "umu-journalism": "arts-social-sciences",
+    "umu-social-work": "arts-social-sciences",
+    "umu-fashion-textile": "arts-social-sciences",
+    "umu-public-admin": "arts-social-sciences",
+    "umu-social-dev-counselling": "arts-social-sciences",
+    "umu-llb": "law",
+    "umu-civil-eng": "engineering-applied-sciences",
+    "umu-elec-eng": "engineering-applied-sciences",
+    "umu-mech-eng": "engineering-applied-sciences",
+    "umu-counselling-psych": "health-sciences",
+    "umu-bsc-public-health": "health-sciences",
+    "umu-bsc-health-promotion": "health-sciences"
+  }
+}
