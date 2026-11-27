@@ -3,7 +3,7 @@
     "status": "assigned-by-project",
     "approval": "pending UMU confirmation",
     "source": "Faculty and school headings in the UMU Courses 2026-2027 brochure, pages 7-11",
-    "note": "Each programme belongs to exactly one faculty. The two umbrella entries (umu-diplomas-certs, umu-postgraduates) span faculties, so they have no faculty: they cannot be chosen by applicants and only the registrar can see them. Faculty administrators see an applicant only through the faculty of the programmes the applicant applied to."
+    "note": "Each programme belongs to exactly one faculty. The postgraduate umbrella entry (umu-postgraduates) spans faculties, so it has no faculty: it cannot be chosen by applicants and only the registrar can see it. Faculty administrators see an applicant only through the faculty of the programmes the applicant applied to."
   },
   "faculties": [
     {
@@ -63,8 +63,6 @@
     "umu-acct-finance": "business-administration-management",
     "umu-microfinance-ced": "business-administration-management",
     "umu-econ-nrm": "business-administration-management",
-    "umu-real-estate": "business-administration-management",
-    "umu-acct-fin-cpa": "business-administration-management",
     "umu-env-design": "built-environment",
     "umu-ba-education": "education",
     "umu-bsc-education": "education",
@@ -81,13 +79,14 @@
     "umu-social-work": "arts-social-sciences",
     "umu-fashion-textile": "arts-social-sciences",
     "umu-public-admin": "arts-social-sciences",
-    "umu-social-dev-counselling": "arts-social-sciences",
     "umu-llb": "law",
-    "umu-civil-eng": "engineering-applied-sciences",
-    "umu-elec-eng": "engineering-applied-sciences",
-    "umu-mech-eng": "engineering-applied-sciences",
-    "umu-counselling-psych": "health-sciences",
-    "umu-bsc-public-health": "health-sciences",
-    "umu-bsc-health-promotion": "health-sciences"
+    "umu-dip-animal-prod": "agriculture-environment",
+    "umu-dip-crop-farm-mgmt": "agriculture-environment",
+    "umu-dip-education-primary": "education",
+    "umu-dip-ecd": "education",
+    "umu-dip-it": "science",
+    "umu-cert-sign-lang": "education",
+    "umu-cert-data-analytics": "science",
+    "umu-cert-comp-app": "science"
   }
 }

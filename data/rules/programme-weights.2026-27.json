@@ -1011,12 +1011,8 @@
         "Sub-Maths",
         "Computer Studies"
       ],
-      "special_requirements": [
-        {
-          "type": "PRE_ENTRY_EXAM",
-          "text": "Makerere sets a pre-entry examination; UMU's process is unknown"
-        }
-      ],
+      "special_requirements": [],
+      "note": "Makerere sets a pre-entry examination; UMU's process is unknown. Informational only: not enforced by automated screening.",
       "parse_confidence": "high"
     },
     {
@@ -1410,6 +1406,475 @@
       ],
       "special_requirements": [],
       "parse_confidence": "high"
+    },
+    {
+      "id": "umu-agritech-eng",
+      "source": {
+        "institution": "Public Universities Admissions",
+        "edition": "2026/2027",
+        "section": "UMU BSc Agricultural Technology"
+      },
+      "programme": "B.Sc. in Agricultural Technology",
+      "essential": [
+        {
+          "type": "REQUIRED",
+          "subjects": ["Mathematics", "Physics"]
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": ["Chemistry", "Biology", "Agriculture", "Geom. & Mech. Drawing", "Geom. & Building Drawing"]
+        }
+      ],
+      "desirable": ["General Paper", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "umu-econ-nrm-rule",
+      "source": {
+        "institution": "Public Universities Admissions",
+        "edition": "2026/2027",
+        "section": "UMU BSc Economics and Natural Resources Management"
+      },
+      "programme": "B.Sc. in Economics and Natural Resources Management",
+      "essential": [
+        {
+          "type": "REQUIRED",
+          "subjects": ["Economics"]
+        },
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": ["Mathematics", "Geography", "Biology", "Chemistry", "Agriculture"]
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "kyu-spec-needs",
+      "source": {
+        "institution": "Kyambogo University",
+        "edition": "2026/2027",
+        "section": "Bachelor of Inclusive Deaf Education"
+      },
+      "programme": "Bachelor of Inclusive Deaf Education",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 2,
+          "from": "ALL"
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "mak-ptc-primary",
+      "source": {
+        "institution": "Makerere University",
+        "edition": "2026/2027",
+        "section": "Primary Teachers College scheme"
+      },
+      "programme": "Bachelor of Education - Primary",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 2,
+          "from": "ALL"
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "umu-dip-agric",
+      "source": {
+        "institution": "Public Universities Admissions",
+        "edition": "2026/2027",
+        "section": "UMU agriculture diplomas"
+      },
+      "programme": "Diplomas in Animal Production / Crop Production and Farm Management",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": ["Biology", "Agriculture", "Chemistry"]
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 2,
+          "from": ["Biology", "Agriculture", "Chemistry", "Geography", "Foods and Nutrition", "Mathematics"]
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "umu-dip-educ",
+      "source": {
+        "institution": "Public Universities Admissions",
+        "edition": "2026/2027",
+        "section": "UMU education diplomas"
+      },
+      "programme": "Diplomas in Education - Primary / Early Childhood Development",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "ALL"
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 2,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "umu-dip-it",
+      "source": {
+        "institution": "Public Universities Admissions",
+        "edition": "2026/2027",
+        "section": "UMU Diploma in Information Technology"
+      },
+      "programme": "Diploma in Information Technology",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": ["Mathematics", "Physics", "Economics", "Entrepreneurship", "Chemistry", "Geography"]
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 2,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "nche-heac-gen",
+      "source": {
+        "institution": "National Council for Higher Education",
+        "edition": "2026/2027",
+        "section": "Higher Education Access Certificate"
+      },
+      "programme": "Higher Education Access Certificate - Biological, Physical, General",
+      "variants": [
+        {
+          "id": "biological",
+          "essential": [{ "type": "BEST_OF", "n": 1, "from": ["Biology", "Chemistry"] }],
+          "relevant": [{ "type": "BEST_OF", "n": 2, "from": "REMAINING" }],
+          "desirable": ["General Paper", "Sub-Maths", "Computer Studies"]
+        },
+        {
+          "id": "physical",
+          "essential": [{ "type": "BEST_OF", "n": 1, "from": ["Mathematics", "Physics"] }],
+          "relevant": [{ "type": "BEST_OF", "n": 2, "from": "REMAINING" }],
+          "desirable": ["General Paper", "Sub-Maths", "Computer Studies"]
+        },
+        {
+          "id": "general",
+          "essential": [{ "type": "BEST_OF", "n": 1, "from": "ALL" }],
+          "relevant": [{ "type": "BEST_OF", "n": 2, "from": "REMAINING" }],
+          "desirable": ["General Paper", "Sub-Maths", "Computer Studies"]
+        }
+      ],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "umu-cert-sign-lang",
+      "source": {
+        "institution": "Uganda Martyrs University",
+        "edition": "2026/2027",
+        "section": "Certificate in Sign Language and Deaf Culture"
+      },
+      "programme": "Certificate in Sign Language and Deaf Culture",
+      "entry_basis": "UCE",
+      "essential": [
+        {
+          "type": "REQUIRED",
+          "subjects": ["English Language"]
+        },
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": ["Literature in English", "History", "CRE", "IRE", "Biology"]
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": [],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "umu-cert-computing",
+      "source": {
+        "institution": "Uganda Martyrs University",
+        "edition": "2026/2027",
+        "section": "Certificates in Data Analytics and Computer Applications"
+      },
+      "programme": "Certificates in Data Analytics and Management / Computer Applications",
+      "entry_basis": "UCE",
+      "essential": [
+        {
+          "type": "REQUIRED",
+          "subjects": ["Mathematics"]
+        },
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": ["Computer Studies", "Physics", "Commerce", "Principles of Accounts"]
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": [],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "mak-swsa-alt",
+      "source": {
+        "institution": "Makerere University",
+        "edition": "2026/2027",
+        "section": "Bachelor of Social Work and Social Administration"
+      },
+      "programme": "Bachelor of Social Work and Social Administration",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 2,
+          "from": "ALL"
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "kyu-counselling-alt",
+      "source": {
+        "institution": "Kyambogo University",
+        "edition": "2026/2027",
+        "section": "Bachelor of Counselling Psychology"
+      },
+      "programme": "Bachelor of Counselling Psychology",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 2,
+          "from": "ALL"
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "must-pubhealth",
+      "source": {
+        "institution": "Mbarara University of Science and Technology",
+        "edition": "2026/2027",
+        "section": "Bachelor of Science in Public Health"
+      },
+      "programme": "Bachelor of Science in Public Health",
+      "essential": [
+        {
+          "type": "REQUIRED",
+          "subjects": ["Biology"]
+        },
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": ["Chemistry", "Physics", "Mathematics", "Agriculture"]
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "must-health-prom",
+      "source": {
+        "institution": "Mbarara University of Science and Technology",
+        "edition": "2026/2027",
+        "section": "Bachelor of Science in Health Promotion and Education"
+      },
+      "programme": "Bachelor of Science in Health Promotion and Education",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": ["Biology", "Chemistry", "Agriculture"]
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "must-15-cpa",
+      "source": {
+        "institution": "Mbarara University of Science and Technology",
+        "edition": "2026/2027",
+        "section": "BSc Accounting and Finance CPA holders route"
+      },
+      "programme": "Bachelor of Science in Accounting and Finance (CPA Holders)",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 2,
+          "from": "ALL"
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [
+        {
+          "type": "PROFESSIONAL_QUALIFICATION",
+          "text": "CPA/ACCA holding route is checked by the UMU entry requirements; this weighting is informational only."
+        }
+      ],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "umu-gen-entry-sub",
+      "source": {
+        "institution": "Uganda Martyrs University",
+        "edition": "2026/2027",
+        "section": "General sub-degree entry weighting"
+      },
+      "programme": "General sub-degree weighting",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "ALL"
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 2,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
+    },
+    {
+      "id": "umu-grad-school-gen",
+      "source": {
+        "institution": "Uganda Martyrs University",
+        "edition": "2026/2027",
+        "section": "General postgraduate weighting"
+      },
+      "programme": "General postgraduate weighting",
+      "essential": [
+        {
+          "type": "BEST_OF",
+          "n": 2,
+          "from": "ALL"
+        }
+      ],
+      "relevant": [
+        {
+          "type": "BEST_OF",
+          "n": 1,
+          "from": "REMAINING"
+        }
+      ],
+      "desirable": ["General Paper", "Sub-Maths", "Computer Studies"],
+      "special_requirements": [],
+      "parse_confidence": "medium"
     }
   ]
 }

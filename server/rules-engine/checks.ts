@@ -1,6 +1,6 @@
 import type { Applicant, Check, Rule } from "./types";
 import {
-  CREDIT_OR_BETTER, O_PASS, bestSittingCount, normSubject, principalPasses, subsidiaryPassCount,
+  CREDIT_OR_BETTER, O_PASS, bestSittingCount, normSubject, principalPasses, subsidiaryPassCount, subsidiaryPoints,
 } from "./grades";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "es"}`;
@@ -68,7 +68,7 @@ export function evaluateRule(rule: Rule, a: Applicant): Check {
       const subMaths = a.uace.find((r) => r.level === "SUBSIDIARY" && normSubject(r.subject) === "sub-maths");
       const uceMaths = a.uce.find((r) => normSubject(r.subject) === "mathematics");
       const expected = "Credit or better in Sub-Maths (A-level) or Mathematics (UCE)";
-      const ok = (subMaths && CREDIT_OR_BETTER.has(subMaths.grade)) || (uceMaths && CREDIT_OR_BETTER.has(uceMaths.grade));
+      const ok = (subMaths && subsidiaryPoints(subMaths.grade) > 0) || (uceMaths && CREDIT_OR_BETTER.has(uceMaths.grade));
       if (ok) return { ruleId: rule.id, type: rule.type, status: "PASS", expected, actual: "requirement met" };
       if (a.uce.length === 0 && !subMaths)
         return { ruleId: rule.id, type: rule.type, status: "REVIEW", expected, actual: "no UCE or Sub-Maths results to check" };

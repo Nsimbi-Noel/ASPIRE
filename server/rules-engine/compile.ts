@@ -1,4 +1,4 @@
-import type { Level, Route, Rule, RuleSet, Selector, Weighting, WeightVariant } from "./types";
+import type { EntryBasis, Level, Route, Rule, RuleSet, Selector, SubDegreeWeighting, Weighting, WeightVariant } from "./types";
 import { CREDIT_CLASSES, HEAC_CLASSES } from "./grades";
 
 // ---- Shapes of the JSON files in data/rules (only the parts the compiler reads) ----
@@ -10,16 +10,25 @@ export interface RulesData {
     id: string; status: string; approval: string;
     category_weights: { essential: number; relevant: number; desirable: number };
     alevel_points: Record<string, number>;
+    sub_degree_weighting?: SubDegreeWeighting;
     source: { title: string };
   };
   programmeWeights: { rules: RawWeightRule[] };
   mapping: { mapped: { id: string; umu_programme: string; level: string; rules: { rule: string; role: string }[] }[] };
 }
+interface RawVariant {
+  id: string;
+  essential: Selector[];
+  relevant: Selector[];
+  desirable: string[];
+  entry_basis?: EntryBasis;
+}
 interface RawWeightRule {
   id: string; programme: string;
   source: { institution: string; edition: string; section: string };
   essential?: Selector[]; relevant?: Selector[]; desirable?: string[];
-  variants?: { id: string; essential: Selector[]; relevant: Selector[]; desirable: string[] }[];
+  entry_basis?: EntryBasis;
+  variants?: RawVariant[];
   special_requirements: { type: string; text?: string }[];
 }
 
@@ -123,11 +132,15 @@ export function buildRuleSet(
   let weighting: Weighting | undefined;
   if (weightRule) {
     const variants: WeightVariant[] = weightRule.variants
-      ? weightRule.variants
-      : [{ id: "default", essential: weightRule.essential ?? [], relevant: weightRule.relevant ?? [], desirable: weightRule.desirable ?? [] }];
+      ? weightRule.variants.map((variant) => ({ ...variant }))
+      : [{ id: "default", essential: weightRule.essential ?? [], relevant: weightRule.relevant ?? [], desirable: weightRule.desirable ?? [], ...(weightRule.entry_basis ? { entry_basis: weightRule.entry_basis } : {}) }];
     weighting = {
       ruleId: weightRule.id,
-      system: { category_weights: data.weightingSystem.category_weights, alevel_points: data.weightingSystem.alevel_points },
+      system: {
+        category_weights: data.weightingSystem.category_weights,
+        alevel_points: data.weightingSystem.alevel_points,
+        ...(data.weightingSystem.sub_degree_weighting ? { sub_degree_weighting: data.weightingSystem.sub_degree_weighting } : {}),
+      },
       variants,
     };
   }

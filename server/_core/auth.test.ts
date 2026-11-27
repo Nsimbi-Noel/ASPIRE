@@ -37,7 +37,7 @@ describe("session tokens", () => {
     const [head, body, signature] = token.split(".");
     expect(
       await readSession(
-        `${head}.${body}.${signature === "a" ? "b" : "a"}${signature?.slice(1)}`
+        `${head}.${body}.${signature?.[0] === "a" ? "b" : "a"}${signature?.slice(1)}`
       )
     ).toBeNull();
     expect(await readSession("not-a-token")).toBeNull();

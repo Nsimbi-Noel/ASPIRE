@@ -12,6 +12,7 @@ import {
   committeeDecisions,
   examResults,
   faculties,
+  facultyRecommendations,
   notifications,
   ruleSets,
   screeningRuns,
@@ -21,8 +22,8 @@ import { getDb, getUserByEmail } from "../db";
 import { fileStore } from "../storage";
 import { generateTemporaryPassword, hashPassword } from "../services/passwords";
 import { loadApplicationForActor } from "../services/applicationAccess";
-import { buildEngineApplicant, compileFileRuleSet, facultyOfProgramme, getProgrammeById, listFaculties, listProgrammes, mappingProposalSummary, screenAllProgrammes, screenProgramme } from "../services/screeningService";
-import { ASPIRE_ROLES, applicationVisibility, canSeeFaculty, decisionVisibility, redactDecisionForApplicant, redactHistory, roleOf, runVisibility, scopeOf, validateRoleAssignment, type ActorUser, type AspireRole, type Scope } from "../services/access";
+import { buildEngineApplicant, compileFileRuleSet, facultyOfProgramme, getProgrammeById, listCampuses, listFaculties, listProgrammes, listStudyModes, mappingProposalSummary, screenAllProgrammes, screenProgramme } from "../services/screeningService";
+import { ASPIRE_ROLES, applicationVisibility, canSeeFaculty, decisionVisibility, recommendationVisibility, redactDecisionForApplicant, redactHistory, roleOf, runVisibility, scopeOf, validateRoleAssignment, type ActorUser, type AspireRole, type Scope } from "../services/access";
 import { MAX_PROGRAMME_CHOICES, planProgrammeChoices } from "../services/programmeChoices";
 import { approvalLine, buildSeedRows, isInUse, ruleContent, ruleSetFromRow, ruleSetRecordId, storedLookup, validateRuleSetContent } from "../services/ruleSetStore";
 import { detectApplicantAnomalies } from "../services/anomalies";
@@ -31,6 +32,7 @@ import { parseResultsCsv } from "../services/resultsCsv";
 import { extractDocument } from "../services/documentExtraction";
 import { protectedProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
+import { LAUNCH_INTAKE, SUPPORTED_INTAKES, gradeOptionsFor, isAllowedResultGrade, isAllowedResultSubject, isSupportedIntake, normalizeResultGrade, normalizeResultSubject, subjectOptionsFor, type ExamType, type UaceLevel } from "@shared/const";
 
 const appRoleValues = ASPIRE_ROLES;
 
@@ -43,6 +45,7 @@ function allowRoles(...allowed: AspireRole[]) {
 }
 
 const staff = allowRoles("faculty_administrator", "registrar");
+const facultyAdmin = allowRoles("faculty_administrator");
 const registrar = allowRoles("registrar");
 const applicantOrStaff = allowRoles("applicant", "faculty_administrator", "registrar");
 const applicantOrRegistrar = allowRoles("applicant", "registrar");
@@ -58,7 +61,25 @@ const everything = sql`1 = 1`;
 const appFilter = (db: Db, scope: Scope): SQL => applicationVisibility(db, scope) ?? everything;
 const runFilter = (scope: Scope): SQL => runVisibility(scope) ?? everything;
 const decisionFilter = (scope: Scope): SQL => decisionVisibility(scope) ?? everything;
+const recommendationFilter = (scope: Scope): SQL => recommendationVisibility(scope) ?? everything;
 const today = () => new Date().toISOString().slice(0, 10);
+
+/** Faculty administrators get their own faculty's programmes; applicants and registrars get the full catalogue. */
+function visibleProgrammes(scope: Scope) {
+  const programmes = listProgrammes();
+  if (scope.kind === "faculty") return programmes.filter((programme) => programme.facultyId === scope.facultyId);
+  if (scope.kind === "none") return [];
+  return programmes;
+}
+const intakeSchema = z.enum(SUPPORTED_INTAKES);
+const committeeActionSchema = z.enum(["admit", "decline", "defer", "request_information"]);
+
+function assertSupportedIntake(application: { id: string; intake: string }) {
+  if (!isSupportedIntake(application.intake)) throw new TRPCError({
+    code: "PRECONDITION_FAILED",
+    message: `Intake ${application.intake} is no longer supported. Correct the intake to ${LAUNCH_INTAKE} before screening or changing this case.`,
+  });
+}
 
 /** Loads an application only if the actor may see it. Out-of-scope cases are reported as not found. */
 async function applicationForActor(applicationId: string, user: ActorUser) {
@@ -120,8 +141,27 @@ async function ruleLookup(db: Db) {
   return storedLookup(rows, today());
 }
 
+type ChoiceSelection = { campusId: string; modeId: string };
+
+function validatedSelections(programmeIds: string[], selections: Array<ChoiceSelection & { programmeId: string }>): Map<string, ChoiceSelection> {
+  const wanted = new Set(programmeIds);
+  const campuses = new Set(listCampuses().map((campus) => campus.id));
+  const modes = new Set(listStudyModes().map((mode) => mode.id));
+  const result = new Map<string, ChoiceSelection>();
+  for (const selection of selections) {
+    if (!wanted.has(selection.programmeId)) continue;
+    const programme = getProgrammeById(selection.programmeId);
+    if (!programme) throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown programme: ${selection.programmeId}.` });
+    const offering = programme.offerings.find((item) => item.campusId === selection.campusId);
+    if (!campuses.has(selection.campusId) || !offering) throw new TRPCError({ code: "BAD_REQUEST", message: `${programme.name} is not offered at that campus.` });
+    if (!modes.has(selection.modeId) || !offering.modes.includes(selection.modeId)) throw new TRPCError({ code: "BAD_REQUEST", message: `That mode of study is not offered for ${programme.name} at that campus.` });
+    result.set(selection.programmeId, { campusId: selection.campusId, modeId: selection.modeId });
+  }
+  return result;
+}
+
 /** Replaces an application's programme choices with the given ordered list. First choice becomes the requested programme. */
-async function syncChoices(db: Db, applicationId: string, desired: string[]) {
+async function syncChoices(db: Db, applicationId: string, desired: string[], selections: Map<string, ChoiceSelection> = new Map()) {
   const wanted = [...new Set(desired)];
   for (const programmeId of wanted) {
     const programme = getProgrammeById(programmeId);
@@ -134,9 +174,11 @@ async function syncChoices(db: Db, applicationId: string, desired: string[]) {
   catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Invalid programme choices." }); }
   for (const item of plan.upserts) {
     const facultyId = getProgrammeById(item.programmeId)!.facultyId!;
+    const selection = selections.get(item.programmeId);
+    const campusFields = selection ? { campusId: selection.campusId, studyModeId: selection.modeId } : {};
     const found = existing.find((row) => row.programmeId === item.programmeId);
-    if (found) await db.update(applicationProgrammes).set({ choiceRank: item.choiceRank, status: "submitted", facultyId }).where(eq(applicationProgrammes.id, found.id));
-    else await db.insert(applicationProgrammes).values({ applicationId, programmeId: item.programmeId, facultyId, choiceRank: item.choiceRank, status: "submitted" });
+    if (found) await db.update(applicationProgrammes).set({ choiceRank: item.choiceRank, status: "submitted", facultyId, ...campusFields }).where(eq(applicationProgrammes.id, found.id));
+    else await db.insert(applicationProgrammes).values({ applicationId, programmeId: item.programmeId, facultyId, choiceRank: item.choiceRank, status: "submitted", ...campusFields });
   }
   for (const programmeId of plan.withdraw) await db.update(applicationProgrammes).set({ status: "withdrawn" }).where(and(eq(applicationProgrammes.applicationId, applicationId), eq(applicationProgrammes.programmeId, programmeId)));
   await db.update(applications).set({ requestedProgrammeId: wanted[0] ?? null }).where(eq(applications.id, applicationId));
@@ -168,6 +210,7 @@ async function persistCurrentScreening(applicationId: string, actorUserId: numbe
   const applicationRows = await db.select().from(applications).where(eq(applications.id, applicationId)).limit(1);
   const application = applicationRows[0];
   if (!application) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+  assertSupportedIntake(application);
   const engineInput = await getApplicantEngineInput(applicationId);
   const sameIntakeRows = await db.select({ id: applications.id }).from(applications).where(and(eq(applications.applicantUserId, application.applicantUserId), eq(applications.intake, application.intake)));
   const anomalyFlags = detectApplicantAnomalies(engineInput.results, sameIntakeRows.length);
@@ -208,6 +251,17 @@ async function persistCurrentScreening(applicationId: string, actorUserId: numbe
   return { results, anomalyFlags };
 }
 
+type ResultRowInput = { exam: ExamType; subject: string; grade: string; subjectLevel?: UaceLevel; sitting: string };
+
+function normalizedResultRow<T extends ResultRowInput>(row: T): T {
+  const level = row.exam === "UACE" ? row.subjectLevel : undefined;
+  return {
+    ...row,
+    subject: normalizeResultSubject(row.exam, level, row.subject),
+    grade: normalizeResultGrade(row.exam, level, row.grade),
+  };
+}
+
 const resultSchema = z.object({
   exam: z.enum(["UCE", "UACE"]),
   subject: z.string().trim().min(2).max(120),
@@ -215,13 +269,14 @@ const resultSchema = z.object({
   subjectLevel: z.enum(["PRINCIPAL", "SUBSIDIARY"]).optional(),
   sitting: z.string().trim().regex(/^(19|20)\d{2}$/, "Enter a four-digit exam year."),
 }).superRefine((row, ctx) => {
-  const grade = row.grade.toUpperCase();
-  const uce = new Set(["D1", "D2", "C3", "C4", "C5", "C6", "P7", "P8", "F9"]);
-  const principal = new Set(["A", "B", "C", "D", "E", "O", "F"]);
-  if (row.exam === "UCE" && (!uce.has(grade) || row.subjectLevel !== undefined)) ctx.addIssue({ code: "custom", path: ["grade"], message: "UCE requires a grade D1–F9 and no subject level." });
+  const level = row.exam === "UACE" ? row.subjectLevel : undefined;
+  const subject = normalizeResultSubject(row.exam, level, row.subject);
+  const grade = normalizeResultGrade(row.exam, level, row.grade);
+  if (row.exam === "UCE" && row.subjectLevel !== undefined) ctx.addIssue({ code: "custom", path: ["subjectLevel"], message: "UCE results must not include a subject level." });
   if (row.exam === "UACE" && row.subjectLevel === undefined) ctx.addIssue({ code: "custom", path: ["subjectLevel"], message: "Choose PRINCIPAL or SUBSIDIARY for each UACE result." });
-  if (row.exam === "UACE" && row.subjectLevel === "PRINCIPAL" && !principal.has(grade)) ctx.addIssue({ code: "custom", path: ["grade"], message: "UACE principal grades must be A, B, C, D, E, O or F." });
-  if (row.exam === "UACE" && row.subjectLevel === "SUBSIDIARY" && !uce.has(grade)) ctx.addIssue({ code: "custom", path: ["grade"], message: "UACE subsidiary grades must be D1–F9." });
+  if (!isAllowedResultSubject(row.exam, level, subject)) ctx.addIssue({ code: "custom", path: ["subject"], message: `Choose a subject from the ${row.exam === "UCE" ? "UCE" : level === "SUBSIDIARY" ? "UACE subsidiary" : "UACE principal"} list.` });
+  if (!isAllowedResultGrade(row.exam, level, grade)) ctx.addIssue({ code: "custom", path: ["grade"], message: `Choose a grade from: ${gradeOptionsFor(row.exam, level).join(", ")}.` });
+  if (row.exam === "UACE" && level && !subjectOptionsFor(row.exam, level).includes(subject)) ctx.addIssue({ code: "custom", path: ["subject"], message: `Choose a subject from the UACE ${level.toLowerCase()} list.` });
 });
 
 function makeReference() {
@@ -284,12 +339,25 @@ export const aspireRouter = router({
 
   catalog: router({
     /** Applicant-facing programme names only: no rule identifiers, mapping status or approval data. */
-    choices: protectedProcedure.query(async () => {
-      return listProgrammes()
+    choices: protectedProcedure.query(async ({ ctx }) => {
+      return visibleProgrammes(scopeOf(ctx.user!))
         .filter((programme) => programme.facultyId)
-        .map((programme) => ({ id: programme.id, name: programme.name, level: programme.level, facultyId: programme.facultyId! }));
+        .map((programme) => ({ id: programme.id, name: programme.name, level: programme.level, facultyId: programme.facultyId!, campusIds: programme.campusIds, studyModes: programme.studyModes, offerings: programme.offerings }));
     }),
-    list: staff.query(async () => {
+    /** Applicant-safe programme browse: catalogue programmes by category, no rule/mapping internals. */
+    browse: protectedProcedure.query(async ({ ctx }) => {
+      return visibleProgrammes(scopeOf(ctx.user!)).map((programme) => ({
+        id: programme.id,
+        name: programme.name,
+        level: programme.level,
+        facultyId: programme.facultyId,
+        campusIds: programme.campusIds,
+        studyModes: programme.studyModes,
+        offerings: programme.offerings,
+        screenable: programme.screenable,
+      }));
+    }),
+    list: staff.query(async ({ ctx }) => {
       const db = await database();
       const rows = await db.select().from(ruleSets).where(eq(ruleSets.status, "adopted-proxy"));
       const latest = new Map<string, (typeof rows)[number]>();
@@ -297,12 +365,29 @@ export const aspireRouter = router({
         const current = latest.get(row.programmeId);
         if (!current || row.createdAt > current.createdAt || (row.createdAt === current.createdAt && row.effectiveFrom > current.effectiveFrom)) latest.set(row.programmeId, row);
       }
-      return listProgrammes().map((programme) => {
+      return visibleProgrammes(scopeOf(ctx.user!)).map((programme) => {
         const row = latest.get(programme.id);
         return row ? { ...programme, approval: approvalLine(row), ruleApprovalStatus: row.approvalStatus } : programme;
       });
     }),
-    faculties: protectedProcedure.query(() => listFaculties()),
+    faculties: protectedProcedure.query(({ ctx }) => {
+      const scope = scopeOf(ctx.user!);
+      if (scope.kind === "own") return listFaculties();
+      const facultyIds = new Set(visibleProgrammes(scope).map((programme) => programme.facultyId).filter(Boolean));
+      return listFaculties().filter((faculty) => facultyIds.has(faculty.id));
+    }),
+    campuses: protectedProcedure.query(({ ctx }) => {
+      const scope = scopeOf(ctx.user!);
+      if (scope.kind === "own") return listCampuses();
+      const campusIds = new Set(visibleProgrammes(scope).flatMap((programme) => programme.campusIds));
+      return listCampuses().filter((campus) => campusIds.has(campus.id));
+    }),
+    studyModes: protectedProcedure.query(({ ctx }) => {
+      const scope = scopeOf(ctx.user!);
+      if (scope.kind === "own") return listStudyModes();
+      const modeIds = new Set(visibleProgrammes(scope).flatMap((programme) => programme.studyModes));
+      return listStudyModes().filter((mode) => modeIds.has(mode.id));
+    }),
     mappingSummary: registrar.query(async () => {
       const summary = mappingProposalSummary();
       const db = await database();
@@ -323,7 +408,7 @@ export const aspireRouter = router({
       const now = today();
       return rows.map((row) => ({ ...row, inUse: isInUse(row, now) }));
     }),
-    proxyStatus: staff.query(async () => {
+    proxyStatus: registrar.query(async () => {
       const db = await database();
       const rows = await db.select({ approvalStatus: ruleSets.approvalStatus }).from(ruleSets).where(eq(ruleSets.status, "adopted-proxy"));
       const count = (status: "pending" | "approved" | "rejected") => rows.filter((row) => row.approvalStatus === status).length;
@@ -427,7 +512,7 @@ export const aspireRouter = router({
     }),
     create: applicantOrRegistrar.input(z.object({
       applicantName: z.string().trim().min(2).max(255),
-      intake: z.string().trim().min(4).max(20),
+      intake: intakeSchema,
       level: z.enum(["bachelors", "diploma", "certificate", "higher_education_certificate"]),
       requestedProgrammeId: z.string().max(80).optional(),
     })).mutation(async ({ ctx, input }) => {
@@ -454,11 +539,12 @@ export const aspireRouter = router({
     }),
     get: applicantOrStaff.input(z.object({ id: z.string().min(1) })).query(async ({ ctx, input }) => {
       const { db, application, scope } = await applicationForActor(input.id, ctx.user!);
-      const [results, qualifications, documents, runs, decisionRows, appealRows, history, choiceRows] = await Promise.all([
+      const [results, qualifications, documents, runs, recommendationRows, decisionRows, appealRows, history, choiceRows] = await Promise.all([
         db.select().from(examResults).where(and(eq(examResults.applicationId, input.id), eq(examResults.active, true))).orderBy(examResults.exam, examResults.subject),
         db.select().from(applicantQualifications).where(and(eq(applicantQualifications.applicationId, input.id), eq(applicantQualifications.active, true))),
         db.select().from(applicantDocuments).where(eq(applicantDocuments.applicationId, input.id)).orderBy(desc(applicantDocuments.createdAt)),
         db.select().from(screeningRuns).where(and(eq(screeningRuns.applicationId, input.id), runFilter(scope))).orderBy(desc(screeningRuns.createdAt), desc(screeningRuns.id)).limit(100),
+        db.select().from(facultyRecommendations).where(and(eq(facultyRecommendations.applicationId, input.id), recommendationFilter(scope))).orderBy(desc(facultyRecommendations.recommendedAt), desc(facultyRecommendations.id)),
         db.select().from(committeeDecisions).where(and(eq(committeeDecisions.applicationId, input.id), decisionFilter(scope))).orderBy(desc(committeeDecisions.decidedAt), desc(committeeDecisions.id)),
         db.select().from(appeals).where(eq(appeals.applicationId, input.id)).orderBy(desc(appeals.createdAt)),
         db.select().from(auditEvents).where(and(eq(auditEvents.entityType, "application"), eq(auditEvents.entityId, input.id))).orderBy(desc(auditEvents.createdAt)).limit(100),
@@ -471,33 +557,55 @@ export const aspireRouter = router({
         documents: documents.map(({ storageKey: _storageKey, ...doc }) => doc),
         // Applicants get a simple progress status from the application itself, never the screening trace.
         screenings: scope.kind === "own" ? [] : runs,
-        // Applicants see the outcome and date of a decision, never the committee's reasoning.
+        recommendations: scope.kind === "own" ? (() => {
+          const latestByProgramme = new Map<string, typeof runs[number]>();
+          for (const run of runs) if (!latestByProgramme.has(run.programmeId)) latestByProgramme.set(run.programmeId, run);
+          const outcomeOrder = (outcome: string) => outcome === "ELIGIBLE" ? 0 : outcome === "ON_HOLD" ? 1 : outcome === "NOT_ELIGIBLE" ? 2 : 3;
+          return [...latestByProgramme.values()]
+            .map((run) => {
+              const trace = run.resultTrace as Record<string, any>;
+              return {
+                programmeId: run.programmeId,
+                programmeName: run.programmeName,
+                outcome: run.outcome,
+                explanation: typeof trace.explanation === "string" ? trace.explanation : "",
+                facultyId: run.facultyId ?? null,
+              };
+            })
+            .filter((item) => item.outcome === "ELIGIBLE" || item.outcome === "ON_HOLD")
+            .sort((a, b) => outcomeOrder(a.outcome) - outcomeOrder(b.outcome) || a.programmeName.localeCompare(b.programmeName) || a.programmeId.localeCompare(b.programmeId));
+        })() : undefined,
+        // Faculty recommendations are internal deliberation; only staff in the programme's faculty and the registrar see them.
+        facultyRecommendations: recommendationRows,
+        // Applicants see the outcome and date of a final decision, never the committee's reasoning.
         decisions: scope.kind === "own" ? decisionRows.map(redactDecisionForApplicant) : decisionRows,
         appeals: scope.kind === "own" ? appealRows.map(({ resolution: _resolution, resolvedBy: _resolvedBy, ...appeal }) => appeal) : appealRows,
         history: redactHistory(history, scope, ctx.user!.id, facultyOfProgramme),
         // A faculty administrator sees only the choices in their own faculty.
         choices: choiceRows
           .filter((row) => scope.kind !== "faculty" || row.facultyId === scope.facultyId)
-          .map((row) => ({ programmeId: row.programmeId, facultyId: row.facultyId, choiceRank: row.choiceRank, status: row.status })),
+          .map((row) => ({ programmeId: row.programmeId, facultyId: row.facultyId, campusId: row.campusId, studyModeId: row.studyModeId, choiceRank: row.choiceRank, status: row.status })),
       };
     }),
     /** Sets the programmes this application is for (at most five, in order of preference). */
     setProgrammeChoices: applicantOrRegistrar.input(z.object({
       id: z.string().min(1),
       programmeIds: z.array(z.string().min(1).max(80)).max(MAX_PROGRAMME_CHOICES),
+      selections: z.array(z.object({ programmeId: z.string().min(1).max(80), campusId: z.string().min(1).max(80), modeId: z.string().min(1).max(80) })).optional(),
     })).mutation(async ({ ctx, input }) => {
       const { db, application } = await applicationForActor(input.id, ctx.user!);
       if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "A completed application is locked; programme choices cannot change." });
-      const before = (await db.select().from(applicationProgrammes).where(and(eq(applicationProgrammes.applicationId, input.id), eq(applicationProgrammes.status, "submitted"))).orderBy(applicationProgrammes.choiceRank)).map((row) => row.programmeId);
-      const plan = await syncChoices(db, input.id, input.programmeIds);
-      await writeAudit({ actorUserId: ctx.user!.id, action: "programme_choices_updated", entityType: "application", entityId: input.id, beforeData: { programmeIds: before }, afterData: { programmeIds: plan.upserts.map((item) => item.programmeId) } });
+      const beforeRows = await db.select().from(applicationProgrammes).where(and(eq(applicationProgrammes.applicationId, input.id), eq(applicationProgrammes.status, "submitted"))).orderBy(applicationProgrammes.choiceRank);
+      const selections = validatedSelections(input.programmeIds, input.selections ?? []);
+      const plan = await syncChoices(db, input.id, input.programmeIds, selections);
+      await writeAudit({ actorUserId: ctx.user!.id, action: "programme_choices_updated", entityType: "application", entityId: input.id, beforeData: { programmeIds: beforeRows.map((row) => row.programmeId) }, afterData: { programmeIds: plan.upserts.map((item) => item.programmeId), selections: input.selections ?? [] } });
       if (application.status !== "draft") await notifyStaff(input.id, "Programme choices changed", `Application ${application.reference} changed its programme choices.`);
       return { success: true, choices: plan.upserts };
     }),
     updateProfile: applicantOrRegistrar.input(z.object({
       id: z.string().min(1),
       applicantName: z.string().trim().min(2).max(255),
-      intake: z.string().trim().min(4).max(20),
+      intake: intakeSchema,
       level: z.enum(["bachelors", "diploma", "certificate", "higher_education_certificate"]),
       requestedProgrammeId: z.string().max(80).nullable().optional(),
       submit: z.boolean().default(false),
@@ -532,28 +640,32 @@ export const aspireRouter = router({
     saveResults: applicantOrRegistrar.input(z.object({ id: z.string().min(1), results: z.array(resultSchema).max(80) })).mutation(async ({ ctx, input }) => {
       const { db, application } = await applicationForActor(input.id, ctx.user!);
       if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "A completed application cannot be edited directly." });
+      assertSupportedIntake(application);
       const current = await db.select().from(examResults).where(and(eq(examResults.applicationId, input.id), eq(examResults.active, true)));
       await db.update(examResults).set({ active: false }).where(and(eq(examResults.applicationId, input.id), eq(examResults.active, true)));
       if (input.results.length) {
-        await db.insert(examResults).values(input.results.map((row) => ({
-          applicationId: input.id,
-          exam: row.exam,
-          subject: row.subject,
-          grade: row.grade.toUpperCase(),
-          subjectLevel: row.exam === "UACE" ? row.subjectLevel ?? "PRINCIPAL" : null,
-          sitting: row.sitting,
-          source: roleOf(ctx.user!) === "applicant" ? "applicant_entered" as const : "staff_entered" as const,
-          confirmed: false,
-          active: true,
-        })));
+        await db.insert(examResults).values(input.results.map((row) => {
+          const normalized = normalizedResultRow(row);
+          return {
+            applicationId: input.id,
+            exam: normalized.exam,
+            subject: normalized.subject,
+            grade: normalized.grade,
+            subjectLevel: normalized.exam === "UACE" ? normalized.subjectLevel ?? "PRINCIPAL" : null,
+            sitting: normalized.sitting,
+            source: roleOf(ctx.user!) === "applicant" ? "applicant_entered" as const : "staff_entered" as const,
+            confirmed: false,
+            active: true,
+          };
+        }));
       }
-      await writeAudit({ actorUserId: ctx.user!.id, action: "results_updated", entityType: "application", entityId: input.id, reason: "Previous result rows retained as inactive; new submission recorded.", beforeData: { results: current.map(({ exam, subject, grade, subjectLevel, sitting, source, confirmed }) => ({ exam, subject, grade, subjectLevel, sitting, source, confirmed })) }, afterData: { results: input.results.map((row) => ({ ...row, grade: row.grade.toUpperCase() })) } });
+      await writeAudit({ actorUserId: ctx.user!.id, action: "results_updated", entityType: "application", entityId: input.id, reason: "Previous result rows retained as inactive; new submission recorded.", beforeData: { results: current.map(({ exam, subject, grade, subjectLevel, sitting, source, confirmed }) => ({ exam, subject, grade, subjectLevel, sitting, source, confirmed })) }, afterData: { results: input.results.map(normalizedResultRow) } });
       await persistCurrentScreening(input.id, ctx.user!.id);
       if (roleOf(ctx.user!) === "applicant") await notifyStaff(input.id, "Applicant results updated", `Results for application ${application.reference} were corrected; a new screening trace is available.`);
       await db.update(applications).set({ updatedAt: new Date() }).where(eq(applications.id, input.id));
       return { success: true, count: input.results.length };
     }),
-    confirmOfficialResults: staff.input(z.object({ id: z.string().min(1), reviewNote: z.string().trim().min(10).max(1000) })).mutation(async ({ ctx, input }) => {
+    confirmOfficialResults: facultyAdmin.input(z.object({ id: z.string().min(1), reviewNote: z.string().trim().min(10).max(1000) })).mutation(async ({ ctx, input }) => {
       const { db, application } = await applicationForActor(input.id, ctx.user!);
       if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "Reopen this completed case through the staff correction workflow before changing verification records." });
       const active = await db.select().from(examResults).where(and(eq(examResults.applicationId, input.id), eq(examResults.active, true)));
@@ -578,6 +690,7 @@ export const aspireRouter = router({
     })).mutation(async ({ ctx, input }) => {
       const { db, application } = await applicationForActor(input.id, ctx.user!);
       if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "A completed application is locked. A staff member must reopen it after reviewing the appeal before qualifications can change." });
+      assertSupportedIntake(application);
       const previous = await db.select().from(applicantQualifications).where(and(eq(applicantQualifications.applicationId, input.id), eq(applicantQualifications.active, true)));
       await db.update(applicantQualifications).set({ active: false }).where(and(eq(applicantQualifications.applicationId, input.id), eq(applicantQualifications.active, true)));
       if (input.qualifications.length) await db.insert(applicantQualifications).values(input.qualifications.map((row) => ({ ...row, applicationId: input.id, institution: row.institution ?? null, relatedToProgramme: row.relatedToProgramme ?? null, completedYear: row.completedYear ?? null, active: true })));
@@ -593,6 +706,7 @@ export const aspireRouter = router({
     run: staff.input(z.object({ applicationId: z.string().min(1) })).mutation(async ({ ctx, input }) => {
       const { application, scope } = await applicationForActor(input.applicationId, ctx.user!);
       if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "A completed case is locked. A staff member must reopen it before a new screening run." });
+      assertSupportedIntake(application);
       const { results } = await persistCurrentScreening(input.applicationId, ctx.user!.id);
       // Every programme is screened, but a faculty administrator only receives their own faculty's results.
       return scope.kind === "faculty" ? results.filter((item) => item.mapping.facultyId === scope.facultyId) : results;
@@ -600,9 +714,12 @@ export const aspireRouter = router({
     one: staff.input(z.object({ applicationId: z.string().min(1), programmeId: z.string().min(1) })).mutation(async ({ ctx, input }) => {
       const { db, application, scope } = await applicationForActor(input.applicationId, ctx.user!);
       if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "A completed case is locked. Reopen it through the staff correction workflow before screening again." });
+      assertSupportedIntake(application);
       const programme = getProgrammeById(input.programmeId);
       if (!programme) throw new TRPCError({ code: "NOT_FOUND", message: "Programme not found." });
       if (!canSeeFaculty(scope, programme.facultyId)) throw new TRPCError({ code: "FORBIDDEN", message: "That programme belongs to another faculty." });
+      const choice = await db.select({ id: applicationProgrammes.id }).from(applicationProgrammes).where(and(eq(applicationProgrammes.applicationId, input.applicationId), eq(applicationProgrammes.programmeId, input.programmeId), eq(applicationProgrammes.status, "submitted"))).limit(1);
+      if (!choice[0]) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The applicant has not applied to this programme." });
       const engineInput = await getApplicantEngineInput(input.applicationId);
       const item = screenProgramme(engineInput.applicant, input.programmeId, (await ruleLookup(db))(input.programmeId));
       const snapshot = { application: { id: application.id, reference: application.reference, intake: application.intake }, results: engineInput.results, qualifications: engineInput.qualifications, documentTypes: engineInput.applicant.documents };
@@ -638,6 +755,7 @@ export const aspireRouter = router({
     })).mutation(async ({ ctx, input }) => {
       const { db, application } = await applicationForActor(input.applicationId, ctx.user!);
       if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "This completed application is locked for direct document changes." });
+      assertSupportedIntake(application);
       const bytes = Buffer.from(input.base64, "base64");
       if (bytes.byteLength > 4_000_000) throw new TRPCError({ code: "PAYLOAD_TOO_LARGE", message: "Each document must be 4 MB or smaller." });
       if (bytes.byteLength < 8) throw new TRPCError({ code: "BAD_REQUEST", message: "The uploaded file is empty or invalid." });
@@ -686,13 +804,14 @@ export const aspireRouter = router({
       await applicationForActor(document.applicationId, ctx.user!);
       return { url: `/api/documents/${document.id}/file` };
     }),
-    review: staff.input(z.object({ documentId: z.number().int().positive(), status: z.enum(["needs_review", "verified", "rejected"]), reviewNote: z.string().trim().min(3).max(1000), mismatchesResolved: z.boolean().default(false) })).mutation(async ({ ctx, input }) => {
+    review: facultyAdmin.input(z.object({ documentId: z.number().int().positive(), status: z.enum(["needs_review", "verified", "rejected"]), reviewNote: z.string().trim().min(3).max(1000), mismatchesResolved: z.boolean().default(false) })).mutation(async ({ ctx, input }) => {
       const db = await database();
       const rows = await db.select().from(applicantDocuments).where(eq(applicantDocuments.id, input.documentId)).limit(1);
       const document = rows[0];
       if (!document) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found." });
       const { application } = await applicationForActor(document.applicationId, ctx.user!);
       if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "A completed case is locked. Reopen it through the staff correction workflow before reviewing documents." });
+      assertSupportedIntake(application);
       const extracted = document.extractedFields as { mismatches?: unknown[] } | null;
       const mismatchCount = extracted?.mismatches?.length ?? 0;
       if (input.status === "verified" && mismatchCount > 0 && !input.mismatchesResolved) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This document has grade discrepancies. Review the extracted candidates and explicitly resolve the discrepancy before verification." });
@@ -709,6 +828,7 @@ export const aspireRouter = router({
     setDocumentDeadline: staff.input(z.object({ applicationId: z.string().min(1), deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(), reason: z.string().trim().min(10).max(1000) })).mutation(async ({ ctx, input }) => {
       const { db, application } = await applicationForActor(input.applicationId, ctx.user!);
       if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "A completed case is locked. Reopen it through the staff correction workflow before changing deadlines." });
+      assertSupportedIntake(application);
       const deadline = input.deadline ? new Date(`${input.deadline}T23:59:59.000Z`) : null;
       if (deadline && (Number.isNaN(deadline.getTime()) || deadline.toISOString().slice(0, 10) !== input.deadline)) throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid calendar deadline date." });
       await db.update(applications).set({ documentDeadline: deadline }).where(eq(applications.id, input.applicationId));
@@ -832,12 +952,17 @@ export const aspireRouter = router({
       if (missing.length) throw new TRPCError({ code: "NOT_FOUND", message: `Unknown application reference(s): ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? "…" : ""}` });
       const completed = matchingApplications.filter((row) => row.status === "completed").map((row) => row.reference);
       if (completed.length) throw new TRPCError({ code: "CONFLICT", message: `Completed cases cannot be edited by CSV: ${completed.slice(0, 10).join(", ")}` });
+      const unsupported = matchingApplications.filter((row) => !isSupportedIntake(row.intake)).map((row) => row.reference);
+      if (unsupported.length) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Unsupported intakes cannot be imported or screened: ${unsupported.slice(0, 10).join(", ")}. Correct them to ${LAUNCH_INTAKE} first.` });
       for (const [reference, rows] of grouped) {
         const application = byReference.get(reference)!;
         const current = await db.select().from(examResults).where(and(eq(examResults.applicationId, application.id), eq(examResults.active, true)));
         await db.update(examResults).set({ active: false }).where(and(eq(examResults.applicationId, application.id), eq(examResults.active, true)));
-        await db.insert(examResults).values(rows.map((row) => ({ applicationId: application.id, exam: row.exam, subject: row.subject, grade: row.grade, subjectLevel: row.exam === "UACE" ? row.subjectLevel ?? "PRINCIPAL" as const : null, sitting: row.sitting, source: "staff_entered" as const, confirmed: false, active: true })));
-        await writeAudit({ actorUserId: ctx.user!.id, action: "results_imported_from_csv", entityType: "application", entityId: application.id, reason: "CSV import; previous active entries retained as inactive.", beforeData: { results: current.map(({ exam, subject, grade, subjectLevel, sitting }) => ({ exam, subject, grade, subjectLevel, sitting })) }, afterData: { results: rows } });
+        await db.insert(examResults).values(rows.map((row) => {
+          const normalized = normalizedResultRow(row);
+          return { applicationId: application.id, exam: normalized.exam, subject: normalized.subject, grade: normalized.grade, subjectLevel: normalized.exam === "UACE" ? normalized.subjectLevel ?? "PRINCIPAL" as const : null, sitting: normalized.sitting, source: "staff_entered" as const, confirmed: false, active: true };
+        }));
+        await writeAudit({ actorUserId: ctx.user!.id, action: "results_imported_from_csv", entityType: "application", entityId: application.id, reason: "CSV import; previous active entries retained as inactive.", beforeData: { results: current.map(({ exam, subject, grade, subjectLevel, sitting }) => ({ exam, subject, grade, subjectLevel, sitting })) }, afterData: { results: rows.map(normalizedResultRow) } });
         await persistCurrentScreening(application.id, ctx.user!.id);
         await db.update(applications).set({ updatedAt: new Date() }).where(eq(applications.id, application.id));
       }
@@ -869,10 +994,48 @@ export const aspireRouter = router({
         return { ...redactApplication(row, scope), latestOutcomes, pendingDocuments: pendingDocs.get(row.id) ?? 0, needsReview: latestOutcomes.includes("ON_HOLD") || (pendingDocs.get(row.id) ?? 0) > 0 };
       });
     }),
-    decisions: staff.input(z.object({
+    recommend: facultyAdmin.input(z.object({
       applicationId: z.string().min(1),
       programmeId: z.string().min(1),
-      decision: z.enum(["admit", "decline", "defer", "request_information"]),
+      recommendation: committeeActionSchema,
+      reason: z.string().trim().min(10).max(2000),
+      overrideSystemResult: z.boolean().default(false),
+    })).mutation(async ({ ctx, input }) => {
+      const { db, application, scope } = await applicationForActor(input.applicationId, ctx.user!);
+      const programme = getProgrammeById(input.programmeId);
+      if (!programme) throw new TRPCError({ code: "NOT_FOUND", message: "Programme not found." });
+      if (!canSeeFaculty(scope, programme.facultyId)) throw new TRPCError({ code: "FORBIDDEN", message: "That programme belongs to another faculty." });
+      const choice = await db.select({ id: applicationProgrammes.id }).from(applicationProgrammes).where(and(eq(applicationProgrammes.applicationId, input.applicationId), eq(applicationProgrammes.programmeId, input.programmeId), eq(applicationProgrammes.status, "submitted"))).limit(1);
+      if (!choice[0]) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The applicant has not applied to this programme." });
+      if (application.status === "draft") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Submit the application before recording a faculty recommendation." });
+      if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "A completed case already has a final verdict. Reopen it before recording a revised recommendation." });
+      const latest = await db.select().from(screeningRuns).where(and(eq(screeningRuns.applicationId, input.applicationId), eq(screeningRuns.programmeId, input.programmeId), runFilter(scope))).orderBy(desc(screeningRuns.createdAt), desc(screeningRuns.id)).limit(1);
+      if (!latest[0]) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Run and review screening before recording a faculty recommendation." });
+      // A recommendation is the faculty's say, not a final verdict: the registrar applies the approval and outcome policy.
+      if (input.recommendation === "admit") {
+        const currentResults = await db.select().from(examResults).where(and(eq(examResults.applicationId, input.applicationId), eq(examResults.active, true)));
+        const officialSlips = await db.select({ id: applicantDocuments.id }).from(applicantDocuments).where(and(eq(applicantDocuments.applicationId, input.applicationId), eq(applicantDocuments.status, "verified"), inArray(applicantDocuments.documentType, ["UCE_RESULT_SLIP", "UACE_RESULT_SLIP"])));
+        if (!currentResults.length || currentResults.some((row) => !row.confirmed) || !officialSlips.length) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Before recommending admission, verify an official UNEB result slip and confirm each active examination result row." });
+      }
+      const rows = await db.insert(facultyRecommendations).values({
+        applicationId: input.applicationId,
+        programmeId: input.programmeId,
+        recommendation: input.recommendation,
+        reason: input.reason,
+        facultyId: programme.facultyId,
+        ruleSetRecordId: latest[0].ruleSetRecordId,
+        screeningRunId: latest[0].id,
+        recommendedBy: ctx.user!.id,
+      });
+      await writeAudit({ actorUserId: ctx.user!.id, action: "faculty_recommendation_recorded", entityType: "application", entityId: input.applicationId, reason: input.reason, beforeData: { screeningOutcome: latest[0].outcome }, afterData: { recommendation: input.recommendation, programmeId: input.programmeId, screeningRunId: latest[0].id, recordId: rows[0].insertId } });
+      const registrars = await db.select({ id: users.id }).from(users).where(and(eq(users.isActive, true), or(eq(users.aspireRole, "registrar"), eq(users.role, "admin"))));
+      if (registrars.length) await db.insert(notifications).values(registrars.map((row) => ({ recipientUserId: row.id, applicationId: input.applicationId, title: "Faculty recommendation recorded", message: `The faculty recorded a ${input.recommendation} recommendation for ${application.reference}. The registrar now records the final verdict.` })));
+      return { success: true, message: "Faculty recommendation recorded. The registrar now records the final verdict." };
+    }),
+    decisions: registrar.input(z.object({
+      applicationId: z.string().min(1),
+      programmeId: z.string().min(1),
+      decision: committeeActionSchema,
       reason: z.string().trim().min(10).max(2000),
       overrideSystemResult: z.boolean().default(false),
     })).mutation(async ({ ctx, input }) => {
@@ -886,6 +1049,9 @@ export const aspireRouter = router({
       if (application.status === "completed") throw new TRPCError({ code: "CONFLICT", message: "A completed case already has a committee record. Review any appeal and reopen the case before recording a revised decision." });
       const latest = await db.select().from(screeningRuns).where(and(eq(screeningRuns.applicationId, input.applicationId), eq(screeningRuns.programmeId, input.programmeId), runFilter(scope))).orderBy(desc(screeningRuns.createdAt), desc(screeningRuns.id)).limit(1);
       if (!latest[0]) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Run and review screening before recording a committee decision." });
+      const recommendation = (await db.select().from(facultyRecommendations).where(and(eq(facultyRecommendations.applicationId, input.applicationId), eq(facultyRecommendations.programmeId, input.programmeId), recommendationFilter(scope))).orderBy(desc(facultyRecommendations.recommendedAt), desc(facultyRecommendations.id)).limit(1))[0];
+      if (!recommendation) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Record the faculty's recommendation before the registrar's final verdict." });
+      if (recommendation.screeningRunId !== latest[0].id) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Screening changed after the faculty recommendation. Ask the faculty to record a fresh recommendation before the final verdict." });
       // The rule set the screening used must have a recorded UMU approval, and the programme mapping must be settled.
       const ruleRow = latest[0].ruleSetRecordId ? (await db.select().from(ruleSets).where(eq(ruleSets.id, latest[0].ruleSetRecordId)).limit(1))[0] : undefined;
       const mappingReviewRequired = (latest[0].resultTrace as { mappingReviewRequired?: boolean }).mappingReviewRequired === true;
@@ -901,13 +1067,14 @@ export const aspireRouter = router({
       }
       const rows = await db.insert(committeeDecisions).values({ applicationId: input.applicationId, programmeId: input.programmeId, decision: input.decision, reason: input.reason, facultyId: programme.facultyId, ruleSetRecordId: latest[0].ruleSetRecordId, decidedBy: ctx.user!.id });
       await db.update(applications).set({ status: policy.nextApplicationStatus }).where(eq(applications.id, input.applicationId));
-      await writeAudit({ actorUserId: ctx.user!.id, action: policy.overrideApplied ? "committee_override" : "committee_decision_recorded", entityType: "application", entityId: input.applicationId, reason: input.reason, beforeData: { applicationStatus: application.status, screeningOutcome: latest[0].outcome }, afterData: { decision: input.decision, programmeId: input.programmeId, applicationStatus: policy.nextApplicationStatus, overrideSystemResult: policy.overrideApplied, ruleSetRecordId: latest[0].ruleSetRecordId, recordId: rows[0].insertId } });
-      await db.insert(notifications).values({ recipientUserId: application.applicantUserId, applicationId: input.applicationId, title: "Committee decision recorded", message: "A decision has been recorded for your application. This system notice is not an admission offer." });
-      return { success: true, message: "Committee decision recorded. This action does not issue an admission offer." };
+      await writeAudit({ actorUserId: ctx.user!.id, action: policy.overrideApplied ? "registrar_override" : "registrar_final_decision", entityType: "application", entityId: input.applicationId, reason: input.reason, beforeData: { applicationStatus: application.status, screeningOutcome: latest[0].outcome }, afterData: { decision: input.decision, programmeId: input.programmeId, applicationStatus: policy.nextApplicationStatus, overrideSystemResult: policy.overrideApplied, ruleSetRecordId: latest[0].ruleSetRecordId, facultyRecommendationId: recommendation.id, recordId: rows[0].insertId } });
+      await db.insert(notifications).values({ recipientUserId: application.applicantUserId, applicationId: input.applicationId, title: "Final decision recorded", message: "The registrar recorded a final decision for your application. This system notice is not an admission offer." });
+      return { success: true, message: "Final verdict recorded by the registrar. This action does not issue an admission offer." };
     }),
     reopenApplication: staff.input(z.object({ applicationId: z.string().min(1), reason: z.string().trim().min(10).max(1000) })).mutation(async ({ ctx, input }) => {
       const { db, application } = await applicationForActor(input.applicationId, ctx.user!);
       if (application.status !== "completed") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Only a completed case can be reopened." });
+      assertSupportedIntake(application);
       await db.update(applications).set({ status: "in_review" }).where(eq(applications.id, input.applicationId));
       await writeAudit({ actorUserId: ctx.user!.id, action: "application_reopened", entityType: "application", entityId: input.applicationId, reason: input.reason, beforeData: { status: application.status }, afterData: { status: "in_review" } });
       await persistCurrentScreening(input.applicationId, ctx.user!.id);
@@ -952,8 +1119,11 @@ export const aspireRouter = router({
     }),
     notifications: protectedProcedure.query(async ({ ctx }) => {
       const db = await database();
+      const scope = scopeOf(ctx.user!);
       const rows = await db.select().from(notifications).where(eq(notifications.recipientUserId, ctx.user!.id)).orderBy(desc(notifications.createdAt)).limit(100);
-      return rows;
+      if (scope.kind !== "faculty" && scope.kind !== "none") return rows;
+      const visibleIds = new Set((await db.select({ id: applications.id }).from(applications).where(appFilter(db, scope))).map((row) => row.id));
+      return rows.filter((row) => !row.applicationId || visibleIds.has(row.applicationId));
     }),
     markNotificationRead: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
       const db = await database();

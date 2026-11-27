@@ -13,7 +13,7 @@ The adoption is a project decision. Until UMU's admissions office approves it, e
 | Layer | Source | Status |
 | --- | --- | --- |
 | General entry by level (bachelors, diploma, certificate, higher education certificate, masters, PhD) | UMU Courses 2026-2027 brochure, p.12 | official |
-| Programme catalogue (programme, campus, mode, duration, fees) | UMU Courses 2026-2027 brochure, p.7-11 | official |
+| Programme catalogue (programme, faculty, campus, study mode, duration; fees still to be imported) | UMU Courses 2026-2027 brochure, pp.7-12 (campus programme tables pp.8-12) | official source; v1 is scoped to Main Campus, Nkozi, and campus/mode/duration assignment is pending UMU confirmation |
 | Subject weighting, special O-level and Sub-Maths conditions | Ministry of Education and Sports, *Information on Public Universities Admissions for 2026/2027* (Notes to Schools). Makerere's tables, with a few gaps filled from Mbarara, Gulu and Kyambogo | adopted-proxy |
 
 Document link: https://news.mak.ac.ug/wp-content/uploads/2025/10/Notes-to-Schools-2026-2027-Academic-Year.pdf (retrieved 22 October 2026).
@@ -26,8 +26,10 @@ The document states that its weighting system applies to all ten public universi
 | --- | --- |
 | `data/rules/entry-requirements.umu-2026-27.json` | UMU general entry rules, expressed as routes |
 | `data/rules/weighting-system.public-universities-2026-27.json` | Category weights, grade points, O-level weights, selection rules |
-| `data/rules/programme-weights.2026-27.json` | 33 programme rule entries (essential, relevant, desirable subjects, special requirements) |
-| `data/rules/programme-mapping.umu.json` | 30 UMU programmes mapped to rule entries, plus 9 groups with no equivalent |
+| `data/rules/programme-weights.2026-27.json` | Programme rule entries (essential, relevant, desirable subjects, special requirements) |
+| `data/rules/programme-mapping.umu.json` | Active UMU Nkozi programme mappings to rule entries, plus the postgraduate group with no equivalent |
+| `data/catalogue/programme-faculties.umu-2026-27.json` | Faculty of each mapped Nkozi programme |
+| `data/catalogue/programme-offerings.umu-2026-27.json` | Nkozi campus lookup, study modes, and each mapped programme's offering rows (`campusId`, `modes`, `duration`); the postgraduate umbrella has no selectable offering |
 
 ## How the system works
 
@@ -71,6 +73,6 @@ UMU must confirm each mapping. Nine groups have no equivalent in the source (inc
 
 - [ ] Check every entry in `programme-weights.2026-27.json` against the PDF. Entries marked `medium` (Statistics) are known to be ambiguous.
 - [ ] Clarify how "one or two better done" is weighted (Business Administration, Accounting).
-- [ ] Confirm each programme mapping with UMU.
+- [ ] Confirm each programme mapping with UMU and confirm the imported campus/study-mode/duration offerings (assigned by project from the brochure, pending UMU confirmation).
 - [ ] Obtain UMU's approval to use the adopted rules, or its own rules.
 - [ ] Re-check the source when the 2027/28 edition is published.

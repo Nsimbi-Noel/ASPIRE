@@ -35,21 +35,23 @@ Three roles, assigned by the registrar.
 
 | Role | Can do |
 | --- | --- |
-| `applicant` | Create and edit their own application, choose up to five programmes, upload documents, see their own results and explanations, appeal. Sees a decision's outcome and date, never the committee's reasoning. |
-| `faculty_administrator` | Review documents, run screenings, record decisions and overrides, resolve appeals and reopen cases, **only for applicants who applied to a programme in their own faculty**. Cannot edit an applicant's data. |
-| `registrar` | Everything, across all faculties: assign roles and faculties, maintain rule versions and record UMU's approval, import results, enter data for an applicant. |
+| `applicant` | Create and edit their own application, choose up to five programmes (with faculty, campus and study-mode details shown from the catalogue), upload documents, see their own results and explanations, appeal. Sees a final decision's outcome and date, never the faculty's or registrar's reasoning. |
+| `faculty_administrator` | Verify academic documents, confirm official results, run screenings, record the faculty's recommendation, resolve appeals and reopen cases, **only for programmes and applicants in their own faculty**. Cannot edit an applicant's data or issue a final verdict. |
+| `registrar` | Everything, across all faculties: assign roles and faculties, maintain rule versions and record UMU's approval, import results, enter data for an applicant, and record the final verdict after the faculty's recommendation. |
 
 The project owner account acts as a registrar. A faculty administrator with no faculty assigned sees nothing.
 
 ### Faculty scoping
 
-An applicant belongs to a faculty only through the programmes they applied to (`applicationProgrammes`). A faculty administrator sees an application while it has a submitted choice in their faculty, and sees only that faculty's screening runs and decisions. Withdrawing a choice removes that faculty's access to the applicant but keeps the history. This is enforced in the server for every procedure and covered by integration tests against a real MySQL database. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+An applicant belongs to a faculty only through the programmes they applied to (`applicationProgrammes`). A faculty administrator sees only programmes in their faculty, and sees an application while it has a submitted choice in their faculty, including only that faculty's screening runs, recommendations and verdicts. Withdrawing a choice removes that faculty's access to the applicant, including stale notifications, but keeps the history. This is enforced in the server for every procedure and covered by integration tests against a real MySQL database. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+The admissions decision has two stages: the faculty administrator verifies the academic evidence and records a recommendation; only the registrar can record the final verdict, and only after that recommendation against the latest screening run. Applicants never see internal recommendations or reasoning.
 
 ## Rules and approval
 
-UMU's brochure supplies the general entry rules by level. Programme-specific subject rules are adopted from the public-universities weighting system and stay **provisional until UMU approves them** ([docs/RULE_SOURCES.md](docs/RULE_SOURCES.md)).
+UMU's brochure supplies the general entry rules by level and the programme catalogue data (faculty, campus, study mode, duration). Programme-specific subject rules are adopted from the public-universities weighting system and stay **provisional until UMU approves them** ([docs/RULE_SOURCES.md](docs/RULE_SOURCES.md)).
 
-Rule sets are stored as versions that are never edited. A registrar activates a version for screening and records UMU's approval of it (who approved, and the reference). **An admit decision can only be recorded when the rule set the screening used has a recorded UMU approval and the programme mapping is settled.** Until then, decline, defer and request-information decisions still work.
+Rule sets are stored as versions that are never edited. A registrar activates a version for screening and records UMU's approval of it (who approved, and the reference). **A final admit verdict can only be recorded when the rule set the screening used has a recorded UMU approval and the programme mapping is settled.** Until then, decline, defer and request-information verdicts still work after the faculty recommendation.
 
 ## Run it
 
@@ -99,6 +101,7 @@ Migration `0003` reduces the roles: `officer` and `committee` become `faculty_ad
 | [TODO.md](TODO.md) | Merged working task list |
 | [REMAINING_WORK.md](REMAINING_WORK.md) | Outstanding checks, known limitations and standing project items |
 | [plan.md](plan.md) | Original implementation plan and design direction |
+| [VERIFICATION.md](VERIFICATION.md) | Verification runs, UI exclusions and environment-dependent checks |
 
 ## Data
 

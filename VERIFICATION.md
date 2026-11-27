@@ -8,7 +8,7 @@ Run on 19 November 2026 in the `C:\Users\DELL\Desktop\ASPIRE-clone` sandbox afte
 | --- | --- |
 | `pnpm install --frozen-lockfile` | completed |
 | `pnpm check` (TypeScript) | passed |
-| `pnpm test` | 15 files passed, 103 tests passed, 0 failed; 4 integration files skipped by design |
+| `pnpm test` | 15 files passed, 103 tests passed, 0 failed; 4 integration files skipped by design (historical; latest run below) |
 | `pnpm build` (Vite client + esbuild server) | passed |
 | `E2E_HEALTH_ONLY=1 pnpm e2e:production` | production bundle starts, serves the built client, answers `/api/health`, refuses signed-out document access |
 | `server/deployment.test.ts` | confirms the Dockerfile installs `poppler-utils` and `tesseract-ocr`, declares the `/app/storage` volume, and that `storage/` and `.env` are ignored |
@@ -17,19 +17,20 @@ Run on 19 November 2026 in the `C:\Users\DELL\Desktop\ASPIRE-clone` sandbox afte
 
 ## Re-verified on 25 November 2026 (current workspace)
 
-The `pnpm` wrapper did not return in this shell, so the installed binaries were invoked directly; these are the same commands behind `pnpm check`, `pnpm test` and `pnpm build`.
+`pnpm` was not on PATH in this shell, so `npx --no-install pnpm ...` was used for the package scripts; the checks below record the underlying commands where they were invoked directly.
 
 | Check | Result |
 | --- | --- |
 | `node node_modules/typescript/bin/tsc --noEmit` | passed |
-| `node node_modules/vitest/vitest.mjs run` | 15 files passed, 103 tests passed, 0 failed; 4 integration files skipped by design (64 tests) |
+| `node node_modules/vitest/vitest.mjs run` | 16 files passed, 106 tests passed, 0 failed; 4 integration files skipped by design (64 tests) |
 | `node node_modules/vite/bin/vite.js build` | passed; 1,723 modules transformed |
 | `node node_modules/esbuild/bin/esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist` | passed; `dist/index.js` 240.3 kB |
+| `server/services/programmeOfferings.test.ts` | 3 tests confirm every mapped programme has offering rows, campus/mode ids are known, catalogue programmes expose campus/study-mode details, and umbrella entries remain non-selectable |
 
 ## Excluded from the UI in this pass
 
 - **Evaluation workspace:** `/evaluation` route and `EvaluationPage` removed. The `aspire.evaluation` endpoint remains only for dashboard counts and CSV cache invalidation.
-- **Applicant rule exposure:** the programme catalogue and rule-governance screens are staff-only. `/programmes` is now gated to staff even when opened directly; applicants choose programmes inside their application through `catalog.choices`.
+- **Applicant rule exposure:** the programme catalogue and rule-governance screens are staff-only. `/programmes` is now gated to staff even when opened directly; applicants choose programmes inside their application through `catalog.choices`, which now includes `campusIds`, `studyModes` and `offerings` but still omits rule identifiers, mapping status and approval data.
 - **Applicant screening internals:** rule IDs, thresholds, traces, ranking, advisory scores and screening audit events are no longer shown to applicants. Applicants see a short review status; staff keep screening evidence and a manual re-run action.
 - **Provisional mapping indicators:** `rules.proxyStatus` and the shell's provisional pill are no longer shown to applicants. Governance is registrar-only.
 - **Unused presentation code:** the theme switcher is not exposed (the app stays in the light UMU theme), and the unused `Home.tsx` template plus unused portions of the shadcn component library remain in source but are not routed or surfaced in the adapted shell.
@@ -56,4 +57,4 @@ The integration tests delete all data in the named database, whose name must con
 
 ## Still needs a person
 
-Open the app in a browser as each role, especially the new sign-in, self-registration, account and user-management pages, and build/run the Docker image to confirm the mounted volume survives container replacement. See [REMAINING_WORK.md](REMAINING_WORK.md).
+Open the app in a browser as each role, especially the new sign-in, self-registration, account and user-management pages, the programme catalogue's faculty/campus/mode filters and columns, and the campus/study-mode details shown in application choices; then build/run the Docker image to confirm the mounted volume survives container replacement. See [REMAINING_WORK.md](REMAINING_WORK.md).

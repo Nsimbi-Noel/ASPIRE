@@ -16,11 +16,11 @@ React client, Express and tRPC server, Drizzle ORM, MySQL. Rules logic is a pure
 
 | `server/services/access.ts` | Roles and faculty scope: who may see which rows |
 | `server/services/ruleSetStore.ts` | Rule version selection, validation, approval text, seeding |
-| `server/services/screeningService.ts` | Programme catalogue, mappings, screening orchestration |
+| `server/services/screeningService.ts` | Programme catalogue (faculty, campuses, study modes, per-programme offerings/duration), mappings, screening orchestration; exposes `listCampuses()` and `listStudyModes()` |
 | `server/services/programmeChoices.ts` | The programme choices an application is for |
 | `server/services/committeeDecisionPolicy.ts` | When a decision may be recorded |
 | `server/rules-engine` | Pure screening logic (no I/O, clock or randomness) |
-| `data/rules`, `data/catalogue` | UMU general rules, adopted rules, mappings, programme-to-faculty assignments |
+| `data/rules`, `data/catalogue` | UMU general rules, adopted rules, mappings, programme-to-faculty assignments, and programme offerings (campuses, study modes, duration) |
 | `drizzle` | Schema and migrations |
 
 ## Accounts and sessions
@@ -50,12 +50,13 @@ Every per-application procedure loads the application through one function, `app
 
 Out-of-scope applications are reported as not found. On top of the application filter:
 
-- **Screening runs and committee decisions** carry the programme's `facultyId`, stamped when written. A faculty administrator sees only their own faculty's.
+- **Programme catalogue, screening runs, faculty recommendations and final decisions** are scoped to the programme's `facultyId`. A faculty administrator sees only their own faculty's.
 - **Programme choices and the requested programme** in other faculties are hidden from a faculty administrator.
 - **History** is redacted: applicants see only their own actions; faculty administrators lose events about other faculties' programmes and the per-outcome counts of full screenings.
-- **Notifications** go to the faculty administrators of the faculties the application has a submitted choice in. With no choice yet, the registrars are notified.
-- **Applicants** see a decision's outcome and date, never its reasoning.
-- **Bulk results import** and role assignment are registrar only. A faculty administrator cannot edit an applicant's data.
+- **Notifications** go to the faculty administrators of the faculties the application has a submitted choice in. With no choice yet, the registrars are notified. Notification reads are re-scoped, so withdrawing a choice also removes stale case notifications from that faculty's view.
+- **Admissions workflow** has two stages: faculty administrators verify documents, confirm official results and record a recommendation against the latest screening run; the registrar records the final verdict only after that recommendation. A changed screening run requires a fresh recommendation.
+- **Applicants** see a final decision's outcome and date, never faculty recommendations or reasoning.
+- **Document verification and result confirmation** are faculty-administrator only. Bulk results import and role assignment are registrar only. Neither role can edit an applicant's data except the registrar's explicit staff-entry procedures.
 
 Faculty scoping is enforced in the server. MySQL has no row-level security, so there is no second layer in the database. Moving to PostgreSQL would allow one.
 

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { applications, auditEvents, committeeDecisions, ruleSets } from "../drizzle/schema";
 import { programmeCatalogue } from "./services/screeningService";
 import {
-  TEST_DB, caller, connectTestDb, latestRun, makeAdmitReady, makeWorld, rejectsWith, resetDb, submittedApplication,
+  TEST_DB, caller, connectTestDb, latestRun, makeAdmitReady, makeWorld, recommend, rejectsWith, resetDb, submittedApplication,
   type Harness, type World,
 } from "./testing/harness";
 
@@ -16,9 +16,10 @@ suite("rule sets, approval and admit decisions (real MySQL)", () => {
   let w: World;
   let app: { id: string; reference: string };   // applied to BSc Computer Science, with evidence verified
 
-  const admit = (decider = () => w.faSci) => caller(h, decider()).staff.decisions({
-    applicationId: app.id, programmeId: "umu-bsc-cs", decision: "admit", reason: "Meets entry requirements; evidence verified.",
-  });
+  const admit = async () => {
+    await recommend(h, w.faSci, app.id, "umu-bsc-cs");
+    return caller(h, w.reg).staff.decisions({ applicationId: app.id, programmeId: "umu-bsc-cs", decision: "admit", reason: "Faculty recommended admission; registrar reviewed the recorded recommendation." });
+  };
   const screenAgain = () => caller(h, w.reg).screening.run({ applicationId: app.id });
 
   beforeAll(async () => { h = await connectTestDb(); });
@@ -27,7 +28,7 @@ suite("rule sets, approval and admit decisions (real MySQL)", () => {
     await resetDb(h.conn);
     w = await makeWorld(h);
     app = await submittedApplication(h, w.app1, "Applicant One", ["umu-bsc-cs"]);
-    await makeAdmitReady(h, w.reg, app.id);
+    await makeAdmitReady(h, w.faSci, app.id);
   });
 
   describe("before any rule set is stored", () => {
@@ -37,9 +38,11 @@ suite("rule sets, approval and admit decisions (real MySQL)", () => {
       expect(run!.ruleSetRecordId).toBeNull();
       await expect(admit()).rejects.toThrow(/UMU has approved/);
     });
-    it("still lets a decline or deferral through", async () => {
-      await caller(h, w.faSci).staff.decisions({ applicationId: app.id, programmeId: "umu-bsc-cs", decision: "defer", reason: "Waiting for a certified copy." });
+    it("still lets a decline or deferral through after the faculty has said so", async () => {
+      await caller(h, w.faSci).staff.recommend({ applicationId: app.id, programmeId: "umu-bsc-cs", recommendation: "defer", reason: "Waiting for a certified copy." });
+      await caller(h, w.reg).staff.decisions({ applicationId: app.id, programmeId: "umu-bsc-cs", decision: "defer", reason: "Faculty asked to defer pending a certified copy." });
       const detail = await caller(h, w.faSci).applications.get({ id: app.id });
+      expect(detail.facultyRecommendations).toHaveLength(1);
       expect(detail.decisions).toHaveLength(1);
     });
   });
@@ -80,6 +83,13 @@ suite("rule sets, approval and admit decisions (real MySQL)", () => {
     it("is registrar only", async () => {
       await rejectsWith("FORBIDDEN", caller(h, w.faSci).rules.recordApproval({ ruleSetId: SEED_ID, decision: "approved", approvedBy: "Me", reference: "My own say-so" }));
     });
+    it("keeps the final verdict with the registrar", async () => {
+      await rejectsWith("FORBIDDEN", caller(h, w.faSci).staff.decisions({ applicationId: app.id, programmeId: "umu-bsc-cs", decision: "admit", reason: "Faculty cannot issue the final verdict." }));
+    });
+    it("requires the faculty's recommendation before the registrar's verdict", async () => {
+      await caller(h, w.reg).rules.recordApproval({ ruleSetId: SEED_ID, decision: "approved", approvedBy: "Academic Registrar", reference: "Minute 12/2026" });
+      await rejectsWith("PRECONDITION_FAILED", caller(h, w.reg).staff.decisions({ applicationId: app.id, programmeId: "umu-bsc-cs", decision: "admit", reason: "Registrar is deciding before the faculty has spoken." }));
+    });
     it("lets an admit through once UMU's approval is recorded, and keeps the trail", async () => {
       const result = await caller(h, w.reg).rules.recordApproval({ ruleSetId: SEED_ID, decision: "approved", approvedBy: "Academic Registrar", reference: "Admissions Board minute 12/2026" });
       expect(result.approval).toBe("Approved by Academic Registrar (Admissions Board minute 12/2026)");
@@ -93,7 +103,8 @@ suite("rule sets, approval and admit decisions (real MySQL)", () => {
       expect(decision).toMatchObject({ decision: "admit", facultyId: "science", ruleSetRecordId: SEED_ID });
       const actions = (await h.db.select().from(auditEvents)).map((event) => event.action);
       expect(actions).toContain("rule_version_approved");
-      expect(actions).toContain("committee_decision_recorded");
+      expect(actions).toContain("faculty_recommendation_recorded");
+      expect(actions).toContain("registrar_final_decision");
     });
     it("blocks the admit again if the approval is later withdrawn", async () => {
       const c = caller(h, w.reg);
@@ -106,16 +117,17 @@ suite("rule sets, approval and admit decisions (real MySQL)", () => {
       await expect(admit()).rejects.toThrow(/UMU has approved/);
     });
     it("does not let approval bypass an unresolved programme mapping", async () => {
-      // BED (Primary) has no confirmed rule mapping: its screening is held for review whatever the approval.
-      const unmapped = await submittedApplication(h, w.app2, "Applicant Two", ["umu-bed-primary"]);
-      await makeAdmitReady(h, w.reg, unmapped.id);
+      // Inclusive Deaf Education has only a partial rule mapping: its screening is held for review whatever the approval.
+      const unmapped = await submittedApplication(h, w.app2, "Applicant Two", ["umu-inclusive-deaf-educ"]);
+      await makeAdmitReady(h, w.faEdu, unmapped.id);
       await caller(h, w.reg).screening.run({ applicationId: unmapped.id });
-      const run = await latestRun(h, unmapped.id, "umu-bed-primary");
-      expect(run!.ruleSetRecordId).toBe("umu-bed-primary@2026-27.1");
-      expect((await h.db.select().from(ruleSets).where(eq(ruleSets.id, "umu-bed-primary@2026-27.1")))[0]!.approvalStatus).toBe("approved");   // general rules are UMU-published
+      const run = await latestRun(h, unmapped.id, "umu-inclusive-deaf-educ");
+      expect(run!.ruleSetRecordId).toBe("umu-inclusive-deaf-educ@2026-27.1");
+      expect((await h.db.select().from(ruleSets).where(eq(ruleSets.id, "umu-inclusive-deaf-educ@2026-27.1")))[0]!.approvalStatus).toBe("approved");   // general rules are UMU-published
       expect((run!.resultTrace as { mappingReviewRequired: boolean }).mappingReviewRequired).toBe(true);
-      await expect(caller(h, w.faEdu).staff.decisions({
-        applicationId: unmapped.id, programmeId: "umu-bed-primary", decision: "admit", reason: "Override: reviewed by hand.", overrideSystemResult: true,
+      await recommend(h, w.faEdu, unmapped.id, "umu-inclusive-deaf-educ");
+      await expect(caller(h, w.reg).staff.decisions({
+        applicationId: unmapped.id, programmeId: "umu-inclusive-deaf-educ", decision: "admit", reason: "Override: reviewed by hand.", overrideSystemResult: true,
       })).rejects.toThrow(/UMU has approved/);
     });
   });

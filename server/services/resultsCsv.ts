@@ -1,10 +1,12 @@
+import { EXAM_TYPES, UACE_LEVELS, isAllowedResultGrade, normalizeResultGrade, type ExamType, type UaceLevel } from "@shared/const";
+
 export type ResultsCsvRow = {
   reference: string;
-  exam: "UCE" | "UACE";
+  exam: ExamType;
   subject: string;
   grade: string;
   sitting: string;
-  subjectLevel?: "PRINCIPAL" | "SUBSIDIARY";
+  subjectLevel?: UaceLevel;
 };
 
 export class ResultsCsvError extends Error {
@@ -23,9 +25,6 @@ export class ResultsCsvError extends Error {
 const requiredHeaders = ["reference", "exam", "subject", "grade", "sitting", "subjectLevel"] as const;
 type Header = (typeof requiredHeaders)[number];
 const headerSet = new Set<string>(requiredHeaders);
-const uceGrades = new Set(["D1", "D2", "C3", "C4", "C5", "C6", "P7", "P8", "F9"]);
-const uacePrincipalGrades = new Set(["A", "B", "C", "D", "E", "O", "F"]);
-const uaceSubsidiaryGrades = uceGrades;
 
 function parseRecords(text: string): string[][] {
   const records: string[][] = [];
@@ -111,22 +110,21 @@ export function parseResultsCsv(text: string): ResultsCsvRow[] {
     }
     const reference = get("reference");
     if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(reference)) throw new ResultsCsvError("invalid reference; use letters, digits, dot, underscore, slash, or hyphen", rowNumber, "reference");
-    const exam = get("exam").toUpperCase();
-    if (exam !== "UCE" && exam !== "UACE") throw new ResultsCsvError("must be UCE or UACE", rowNumber, "exam");
+    const examValue = get("exam").toUpperCase();
+    if (!(EXAM_TYPES as readonly string[]).includes(examValue)) throw new ResultsCsvError("must be UCE or UACE", rowNumber, "exam");
+    const exam = examValue as ExamType;
     const subject = get("subject");
     if (!subject || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(subject)) throw new ResultsCsvError("invalid subject", rowNumber, "subject");
-    const grade = get("grade").toUpperCase();
-    if (exam === "UCE" && !uceGrades.has(grade)) throw new ResultsCsvError("must be one of D1, D2, C3, C4, C5, C6, P7, P8, F9 for UCE", rowNumber, "grade");
     const rawLevel = get("subjectLevel").toUpperCase();
-    const subjectLevel = rawLevel === "" ? undefined : rawLevel;
-    if (exam === "UCE") {
-      if (!uceGrades.has(grade)) throw new ResultsCsvError("must be one of D1, D2, C3, C4, C5, C6, P7, P8, F9 for UCE", rowNumber, "grade");
-      if (subjectLevel !== undefined) throw new ResultsCsvError("must be blank for UCE", rowNumber, "subjectLevel");
-    } else {
-      if (subjectLevel !== "PRINCIPAL" && subjectLevel !== "SUBSIDIARY") throw new ResultsCsvError("must be PRINCIPAL or SUBSIDIARY for UACE", rowNumber, "subjectLevel");
-      const allowed = subjectLevel === "PRINCIPAL" ? uacePrincipalGrades : uaceSubsidiaryGrades;
-      if (!allowed.has(grade)) throw new ResultsCsvError(`invalid ${subjectLevel.toLowerCase()} UACE grade`, rowNumber, "grade");
+    let subjectLevel: UaceLevel | undefined;
+    if (rawLevel !== "") {
+      if (!(UACE_LEVELS as readonly string[]).includes(rawLevel)) throw new ResultsCsvError("must be PRINCIPAL or SUBSIDIARY for UACE", rowNumber, "subjectLevel");
+      subjectLevel = rawLevel as UaceLevel;
     }
+    if (exam === "UCE" && subjectLevel !== undefined) throw new ResultsCsvError("must be blank for UCE", rowNumber, "subjectLevel");
+    if (exam === "UACE" && subjectLevel === undefined) throw new ResultsCsvError("must be PRINCIPAL or SUBSIDIARY for UACE", rowNumber, "subjectLevel");
+    const grade = normalizeResultGrade(exam, subjectLevel, get("grade").toUpperCase());
+    if (!isAllowedResultGrade(exam, subjectLevel, grade)) throw new ResultsCsvError(`invalid ${exam === "UCE" ? "UCE" : `${subjectLevel!.toLowerCase()} UACE`} grade`, rowNumber, "grade");
     const sitting = get("sitting");
     if (!/^\d{4}$/.test(sitting)) throw new ResultsCsvError("must be a four-digit year", rowNumber, "sitting");
     parsed.push({ reference, exam, subject, grade, sitting, ...(subjectLevel ? { subjectLevel } : {}) });

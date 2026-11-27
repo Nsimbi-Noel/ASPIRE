@@ -61,7 +61,7 @@ export function screen(applicant: Applicant, ruleSet: RuleSet): ScreeningResult 
     academic: { status: academicStatus, routes, ...(passed ? { passedRoute: passed.routeId } : {}) },
     documents: { required, missing },
     holdReasons,
-    ...(ruleSet.weighting && applicant.uace.length > 0 ? { score: computeWeightedScore(applicant, ruleSet.weighting) } : {}),
+    ...(ruleSet.weighting ? { score: computeWeightedScore(applicant, ruleSet.weighting, { routeId: chosen.routeId, level: ruleSet.level }) } : {}),
   };
 }
 

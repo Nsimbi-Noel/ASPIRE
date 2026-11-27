@@ -26,6 +26,30 @@ const rule = z.discriminatedUnion("type", [
   z.object({ id: z.string().min(1), type: z.literal("OLEVEL_OVERALL_GRADE_NOT_IN"), grades: z.array(z.string().min(1)).min(1) }),
 ]);
 
+const entryBasis = z.enum(["UACE", "UCE", "UACE_DIRECT", "DIPLOMA", "CERTIFICATE_HOLDER", "HIGHER_EDUCATION_ACCESS"]);
+const subjectList = z.union([
+  z.array(z.string().min(1)),
+  z.enum(["ALL", "REMAINING", "REMAINING_EXCLUDING_FINE_ART", "ALL_ARTS_SUBJECTS", "Language subjects"]),
+]);
+const selector = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("REQUIRED"), subjects: z.array(z.string().min(1)).min(1) }),
+  z.object({ type: z.literal("BEST_OF"), n: z.number().int().min(0).optional(), n_min: z.number().int().min(0).optional(), n_max: z.number().int().min(0).optional(), from: subjectList }),
+  z.object({ type: z.literal("ANY_OR_BOTH"), n: z.number().int().min(0).optional(), subjects: z.array(z.string().min(1)).min(1) }),
+]);
+const subDegreeWeighting = z.object({
+  diploma_and_heac_uace: z.object({
+    essential_count: z.number().int().min(1),
+    essential_weight: z.number(),
+    essential_grades: z.array(z.string().min(1)),
+    relevant_count: z.number().int().min(1),
+    relevant_weight: z.number(),
+    relevant_grades: z.array(z.string().min(1)),
+    desirable_weight: z.number(),
+  }),
+  certificate_and_diploma_holder_standing: z.record(z.string(), z.number()),
+  uce_subject_points: z.record(z.string(), z.number()),
+});
+
 export const ruleSetContentSchema = z.object({
   programmeName: z.string().min(1),
   level: z.enum(["bachelors", "diploma", "certificate", "higher_education_certificate"]),
@@ -33,8 +57,18 @@ export const ruleSetContentSchema = z.object({
   documents: z.object({ common: z.array(z.string()), byRoute: z.record(z.string(), z.array(z.string())) }),
   weighting: z.object({
     ruleId: z.string(),
-    system: z.object({ category_weights: z.object({ essential: z.number(), relevant: z.number(), desirable: z.number() }), alevel_points: z.record(z.string(), z.number()) }),
-    variants: z.array(z.object({ id: z.string(), essential: z.array(z.unknown()), relevant: z.array(z.unknown()), desirable: z.array(z.string()) })).min(1),
+    system: z.object({
+      category_weights: z.object({ essential: z.number(), relevant: z.number(), desirable: z.number() }),
+      alevel_points: z.record(z.string(), z.number()),
+      sub_degree_weighting: subDegreeWeighting.optional(),
+    }),
+    variants: z.array(z.object({
+      id: z.string(),
+      essential: z.array(selector),
+      relevant: z.array(selector),
+      desirable: z.array(z.string()),
+      entry_basis: entryBasis.optional(),
+    })).min(1),
   }).optional(),
   notes: z.array(z.string()).default([]),
 });

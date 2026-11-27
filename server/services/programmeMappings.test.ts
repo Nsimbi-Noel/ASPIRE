@@ -27,29 +27,16 @@ describe("programme mapping registry", () => {
     expect(registry.getIssuesById("umu-bsc-eco-organic").some((issue) => issue.code === "needs_review")).toBe(true);
   });
 
-  it("flags the proposal's nine entries containing ten distinct unresolved rule IDs and unsupported levels", () => {
+  it("resolves every proposal rule ID and leaves only the postgraduate umbrella unsupported", () => {
     const result = validateProgrammeMappings(proposal, weights);
     const unresolved = [...new Set(result.issues.filter((issue) => issue.code === "unknown_rule").map((issue) => issue.ruleId))].sort();
     const unresolvedEntryIds = [...new Set(result.issues.filter((issue) => issue.code === "unknown_rule").map((issue) => issue.programmeId))];
     const unsupportedLevels = result.issues.filter((issue) => issue.code === "invalid_level").map((issue) => issue.message);
 
-    expect(unresolved).toEqual([
-      "kyu-counselling-alt",
-      "kyu-spec-needs",
-      "mak-ptc-primary",
-      "mak-swsa-alt",
-      "must-15-cpa",
-      "must-health-prom",
-      "must-pubhealth",
-      "nche-heac-gen",
-      "umu-gen-entry-sub",
-      "umu-grad-school-gen",
-    ]);
-    expect(unresolvedEntryIds).toHaveLength(9);
-    expect(unsupportedLevels).toHaveLength(2);
-    expect(unsupportedLevels.join(" ")).toContain("sub-bachelors");
+    expect(unresolved).toEqual([]);
+    expect(unresolvedEntryIds).toEqual([]);
+    expect(unsupportedLevels).toHaveLength(1);
     expect(unsupportedLevels.join(" ")).toContain("postgraduate");
-    expect(result.usableMappings.some((mapping) => unresolvedEntryIds.includes(mapping.id))).toBe(false);
     expect(result.usableMappings.some((mapping) => mapping.officiallyApproved)).toBe(false);
   });
 

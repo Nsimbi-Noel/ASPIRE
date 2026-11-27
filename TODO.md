@@ -6,14 +6,14 @@ Our task list merged with what this application now delivers. Items marked **(bl
 
 ### Before first use
 - [ ] Commit this refined clone to Git
-- [ ] Run `pnpm db:migrate` on your database (migration `0003` reduces the roles and adds faculties)
+- [ ] Run `pnpm db:migrate` on your database (`0003` reduces the roles and adds faculties; `0004` adds account columns; `0005` adds campus/study-mode choice columns; `0006` adds faculty recommendations)
 - [ ] If staff accounts already exist, assign each faculty administrator a faculty under Rule governance (until then they see nothing)
 - [ ] Sign in as the project owner, open **Rule governance** and create the first rule versions from the data files
-- [ ] Click through every screen as each role (registrar, a faculty administrator, an applicant). The interface was type-checked and built, but not viewed in a browser
+- [ ] Click through every screen as each role (registrar, a faculty administrator, an applicant), including the programme catalogue's faculty/campus/mode filters and the campus/study-mode details shown in application choices. The interface was type-checked and built, but not viewed in a browser
 - [ ] Run `pnpm test:db` against a disposable MySQL database on your own machine
 
 ### Data and catalogue
-- [ ] Add campus, mode, duration and fees to the programme catalogue from the brochure
+- [ ] Add tuition fees to the programme catalogue from the brochure (campuses, study modes and per-programme offerings with duration are imported and exposed in the catalogue and application choices)
 - [ ] Check the two eligibility-affecting rule entries (`must-15`, `mak-91`) against the PDF
 - [ ] Add a demo-data seeder (synthetic applicants across faculties) so faculty scoping can be shown in the interface
 
@@ -32,13 +32,13 @@ Cheap to do now, slow to come back. Send one email, then carry on building.
 
 ### Waiting on replies
 - [ ] **(blocker)** UMU's approval of each adopted rule set; record it under Rule governance. Until then no admit decision can be recorded
-- [ ] Confirmation of the 30 programme mappings (5 are partial)
+- [ ] Confirmation of the 30 programme mappings (5 are partial) and the imported campus/study-mode/duration offerings
 - [ ] Decision on whether degrees require 5 UCE passes (the engine has a switch, off by default)
 - [ ] Confirmation of no minimum weighted score or cut-offs
 - [ ] Document list per entry route
 - [ ] Subject list for "relevant to programme" at diploma level (manual review until then)
 - [ ] How "or equivalent" qualifications are recorded
-- [ ] Who records the committee's final decisions (assumed: the faculty administrator)
+- [ ] Confirm that the registrar's final verdict may differ from the faculty's recommendation (currently allowed and audited)
 - [ ] Who creates an application for a walk-in applicant
 - [ ] 10-20 real anonymised applicant outcomes as golden test cases
 - [ ] Anonymised past-intake data: results, programme, decision, year-1 outcome
@@ -89,13 +89,13 @@ Cheap to do now, slow to come back. Send one email, then carry on building.
 - [x] Screening uses stored rule sets and records the version used
 - [x] Fixed: same-second screening runs could tie, letting a decision be checked against a stale run
 - [x] Applicants see a decision's outcome and date, not the reasoning; faculty administrators cannot edit applicant data
-- [x] 104 tests: 60 unit and 44 integration against real MySQL. Deliberately breaking the scoping, approval and rule-lookup rules was caught each time
+- [x] Unit and integration suites cover screening, scoping, approvals, rule lookup, account flows, documents and the programme-offerings catalogue; deliberately breaking the scoping, approval and rule-lookup rules was caught each time
 - [x] Safety: the database tests refuse to run unless the database name contains "test"
 - [x] Documentation: README, architecture, data model, decisions and the supporting docs
 - [x] Applicants can create, edit and submit applications, enter UCE and UACE results and upload documents, and see each programme screened separately
 - [x] Deterministic screening with check traces, immutable input snapshots and per-programme outcomes (`ELIGIBLE`, `NOT_ELIGIBLE`, `ON_HOLD`)
 - [x] Programme ranking (TOPSIS) with near misses and diploma and certificate pathways, advisory only
-- [x] Programme catalogue and rule mappings with exact, close and partial match strength and provisional status
+- [x] Programme catalogue and rule mappings with exact, close and partial match strength and provisional status; faculty, campus, study-mode and duration offerings are imported, with staff filters/columns and application-choice detail display
 - [x] Document intake with advisory extraction; a person confirms every extracted mark
 - [x] Hold and correction workflow: automatic re-screening, document deadlines, recorded notifications and appeals
 - [x] Committee decisions with mandatory reasons and overrides, recorded in an append-only audit log

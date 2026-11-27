@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
-import { applicationProgrammes, applications, committeeDecisions, screeningRuns } from "../../drizzle/schema";
+import { applicationProgrammes, applications, committeeDecisions, facultyRecommendations, screeningRuns } from "../../drizzle/schema";
 
 /**
  * Three roles only (project owner's decision, October 2026):
@@ -144,5 +144,18 @@ export function decisionVisibility(scope: Scope): SQL | undefined {
       return eq(committeeDecisions.facultyId, scope.facultyId);
     case "none":
       return sql`1 = 0`;
+  }
+}
+
+/** Which faculty recommendations the actor may see, given the application is already visible. */
+export function recommendationVisibility(scope: Scope): SQL | undefined {
+  switch (scope.kind) {
+    case "all":
+      return undefined;
+    case "own":
+    case "none":
+      return sql`1 = 0`;
+    case "faculty":
+      return eq(facultyRecommendations.facultyId, scope.facultyId);
   }
 }

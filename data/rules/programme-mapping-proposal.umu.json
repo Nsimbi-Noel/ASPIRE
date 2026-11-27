@@ -65,9 +65,9 @@
       "level": "bachelors",
       "rules": [
         {
-          "rule": "mak-3",
+          "rule": "umu-agritech-eng",
           "role": "primary",
-          "match": "partial"
+          "match": "exact"
         }
       ]
     },
@@ -149,14 +149,9 @@
       "level": "bachelors",
       "rules": [
         {
-          "rule": "mak-49",
+          "rule": "umu-econ-nrm-rule",
           "role": "primary",
-          "match": "partial"
-        },
-        {
-          "rule": "mak-10",
-          "role": "alternate",
-          "match": "partial"
+          "match": "exact"
         }
       ]
     },
@@ -344,71 +339,6 @@
       ]
     },
     {
-      "id": "umu-real-estate",
-      "umu_programme": "Bachelor of Real Estate Management",
-      "level": "bachelors",
-      "rules": [
-        {
-          "rule": "mak-91",
-          "role": "primary",
-          "match": "close"
-        }
-      ]
-    },
-    {
-      "id": "umu-civil-eng",
-      "umu_programme": "Bachelor of Science in Civil Engineering",
-      "level": "bachelors",
-      "rules": [
-        {
-          "rule": "mak-54",
-          "role": "primary",
-          "match": "exact"
-        }
-      ]
-    },
-    {
-      "id": "umu-elec-eng",
-      "umu_programme": "Bachelor of Science in Electrical Engineering",
-      "level": "bachelors",
-      "rules": [
-        {
-          "rule": "mak-55",
-          "role": "primary",
-          "match": "exact"
-        }
-      ]
-    },
-    {
-      "id": "umu-mech-eng",
-      "umu_programme": "Bachelor of Science in Mechanical and Manufacturing Engineering",
-      "level": "bachelors",
-      "rules": [
-        {
-          "rule": "mak-56",
-          "role": "primary",
-          "match": "close"
-        }
-      ]
-    },
-    {
-      "id": "umu-counselling-psych",
-      "umu_programme": "Bachelor of Science in Counselling Psychology",
-      "level": "bachelors",
-      "rules": [
-        {
-          "rule": "kyu-68",
-          "role": "primary",
-          "match": "partial"
-        },
-        {
-          "rule": "mak-14",
-          "role": "alternate",
-          "match": "partial"
-        }
-      ]
-    },
-    {
       "id": "umu-inclusive-deaf-educ",
       "umu_programme": "Bachelor of Inclusive Deaf Education (Arts and Sciences)",
       "level": "bachelors",
@@ -416,7 +346,7 @@
         {
           "rule": "kyu-spec-needs",
           "role": "primary",
-          "match": "close"
+          "match": "partial"
         }
       ],
       "note": "Mapped to specialized special needs education pathways at institutions like Kyambogo University."
@@ -435,66 +365,9 @@
       "note": "Aligned with upgrading schemes for Grade III Primary Teachers' Certificate holders."
     },
     {
-      "id": "umu-social-dev-counselling",
-      "umu_programme": "Bachelor of Social Development and Counselling",
-      "level": "bachelors",
-      "rules": [
-        {
-          "rule": "mak-swsa-alt",
-          "role": "primary",
-          "match": "partial"
-        },
-        {
-          "rule": "kyu-counselling-alt",
-          "role": "alternate",
-          "match": "partial"
-        }
-      ],
-      "note": "Overlaps with general social work, social administration, and counselling psychology degrees."
-    },
-    {
-      "id": "umu-bsc-public-health",
-      "umu_programme": "Bachelor of Science in Public Health",
-      "level": "bachelors",
-      "rules": [
-        {
-          "rule": "must-pubhealth",
-          "role": "primary",
-          "match": "exact"
-        }
-      ],
-      "note": "Matched to public health degree frameworks offered at peer medical institutions."
-    },
-    {
-      "id": "umu-bsc-health-promotion",
-      "umu_programme": "Bachelor of Science in Health Promotion and Education",
-      "level": "bachelors",
-      "rules": [
-        {
-          "rule": "must-health-prom",
-          "role": "primary",
-          "match": "close"
-        }
-      ],
-      "note": "Shared core discipline with community health and health education tracks."
-    },
-    {
-      "id": "umu-acct-fin-cpa",
-      "umu_programme": "Bachelor of Science in Accounting and Finance (CPA Holders)",
-      "level": "bachelors",
-      "rules": [
-        {
-          "rule": "must-15-cpa",
-          "role": "primary",
-          "match": "exact"
-        }
-      ],
-      "note": "Specialized fast-track professional scheme for qualified CPA/ACCA holders."
-    },
-    {
       "id": "umu-heac",
       "umu_programme": "Higher Education Access Certificate",
-      "level": "certificate",
+      "level": "higher_education_certificate",
       "rules": [
         {
           "rule": "nche-heac-gen",
@@ -505,17 +378,105 @@
       "note": "Standardized NCHE regulatory framework bridging course rather than a discipline-specific degree."
     },
     {
-      "id": "umu-diplomas-certs",
-      "umu_programme": "All diploma and certificate programmes",
-      "level": "sub-bachelors",
+      "id": "umu-dip-animal-prod",
+      "umu_programme": "Diploma in Animal Production",
+      "level": "diploma",
       "rules": [
         {
-          "rule": "umu-gen-entry-sub",
+          "rule": "umu-dip-agric",
           "role": "primary",
-          "match": "partial"
+          "match": "close"
         }
       ],
-      "note": "Umbrella category governed by general sub-degree institutional entry requirements."
+      "note": "Use the UMU agriculture diploma weighting; confirm the exact award title with admissions."
+    },
+    {
+      "id": "umu-dip-crop-farm-mgmt",
+      "umu_programme": "Diploma in Crop Production and Farm Management",
+      "level": "diploma",
+      "rules": [
+        {
+          "rule": "umu-dip-agric",
+          "role": "primary",
+          "match": "close"
+        }
+      ],
+      "note": "Use the UMU agriculture diploma weighting; confirm the exact award title with admissions."
+    },
+    {
+      "id": "umu-dip-education-primary",
+      "umu_programme": "Diploma in Education - Primary",
+      "level": "diploma",
+      "rules": [
+        {
+          "rule": "umu-dip-educ",
+          "role": "primary",
+          "match": "exact"
+        }
+      ]
+    },
+    {
+      "id": "umu-dip-ecd",
+      "umu_programme": "Diploma in Early Childhood Development",
+      "level": "diploma",
+      "rules": [
+        {
+          "rule": "umu-dip-educ",
+          "role": "primary",
+          "match": "close"
+        }
+      ]
+    },
+    {
+      "id": "umu-dip-it",
+      "umu_programme": "Diploma in Information Technology",
+      "level": "diploma",
+      "rules": [
+        {
+          "rule": "umu-dip-it",
+          "role": "primary",
+          "match": "exact"
+        }
+      ]
+    },
+    {
+      "id": "umu-cert-sign-lang",
+      "umu_programme": "Certificate in Sign Language and Deaf Culture",
+      "level": "certificate",
+      "rules": [
+        {
+          "rule": "umu-cert-sign-lang",
+          "role": "primary",
+          "match": "exact"
+        }
+      ],
+      "note": "Scored from UCE results under the adopted certificate weighting."
+    },
+    {
+      "id": "umu-cert-data-analytics",
+      "umu_programme": "Certificate in Data Analytics and Management",
+      "level": "certificate",
+      "rules": [
+        {
+          "rule": "umu-cert-computing",
+          "role": "primary",
+          "match": "close"
+        }
+      ],
+      "note": "Scored from UCE results under the adopted certificate weighting."
+    },
+    {
+      "id": "umu-cert-comp-app",
+      "umu_programme": "Certificate in Computer Applications",
+      "level": "certificate",
+      "rules": [
+        {
+          "rule": "umu-cert-computing",
+          "role": "primary",
+          "match": "exact"
+        }
+      ],
+      "note": "Scored from UCE results under the adopted certificate weighting."
     },
     {
       "id": "umu-postgraduates",

@@ -4,6 +4,7 @@ import mappingProposal from "../../data/rules/programme-mapping-proposal.umu.jso
 import programmeWeights from "../../data/rules/programme-weights.2026-27.json";
 import weightingSystem from "../../data/rules/weighting-system.public-universities-2026-27.json";
 import programmeFaculties from "../../data/catalogue/programme-faculties.umu-2026-27.json";
+import programmeOfferings from "../../data/catalogue/programme-offerings.umu-2026-27.json";
 import { buildRuleSet, screen, type Applicant, type Level, type RuleSet, type RulesData, type ScreeningResult } from "../rules-engine";
 import {
   createProgrammeMappingRegistry,
@@ -13,6 +14,12 @@ import {
 import { rankProgrammes } from "./programmeRanking";
 
 export type MappingStatus = "adopted-proxy" | "needs-review" | "unsupported";
+
+export interface ProgrammeOffering {
+  campusId: string;
+  modes: string[];
+  duration?: string;
+}
 
 export interface CatalogueProgramme {
   id: string;
@@ -26,8 +33,11 @@ export interface CatalogueProgramme {
   ruleApprovalStatus: "pending" | "approved" | "rejected" | "none";
   screenable: boolean;
   issues: string[];
-  /** The programme's faculty. Null for the two umbrella entries, which only the registrar can see. */
+  /** The programme's faculty. Null for the postgraduate umbrella entry, which only the registrar can see. */
   facultyId: string | null;
+  campusIds: string[];
+  studyModes: string[];
+  offerings: ProgrammeOffering[];
 }
 
 /** A rule set read from the database, with its approval state. */
@@ -74,6 +84,11 @@ const proposalEntries = mappingProposal.mapped as Array<{
   note?: string;
 }>;
 const proposalById = new Map(proposalEntries.map((row) => [row.id, row]));
+const offeringsByProgramme = programmeOfferings.programmes as Record<string, ProgrammeOffering[]>;
+
+function offeringsFor(id: string): ProgrammeOffering[] {
+  return (offeringsByProgramme[id] ?? []).map((offering) => ({ ...offering, modes: [...offering.modes] }));
+}
 
 function issuesFor(id: string, proposalRow: (typeof proposalEntries)[number], baseRow: ProgrammeMappingDataset["mapped"][number] | undefined): string[] {
   const issues = new Set<string>();
@@ -94,9 +109,6 @@ function issuesFor(id: string, proposalRow: (typeof proposalEntries)[number], ba
   if (proposalRow.level === "postgraduate") {
     issues.add("Postgraduate screening is outside v1 scope.");
   }
-  if (id === "umu-heac") {
-    issues.add("The proposal labels HEAC as certificate; the official entry data has a separate higher-education certificate route. The route is corrected for screening, but the mapping remains unapproved.");
-  }
   return [...issues];
 }
 
@@ -106,10 +118,12 @@ export const programmeCatalogue: CatalogueProgramme[] = proposalEntries.map((pro
   const safeBaseline = baselineRegistry.getById(proposalRow.id);
   const unresolved = !safeBaseline;
   const unsupported = proposalRow.level === "sub-bachelors" || proposalRow.level === "postgraduate";
-  const isUmbrella = proposalRow.id === "umu-diplomas-certs" || proposalRow.id === "umu-postgraduates";
-  const level = proposalRow.id === "umu-heac" ? "higher_education_certificate" : proposalRow.level;
+  const isUmbrella = proposalRow.id === "umu-postgraduates";
+  const level = proposalRow.level;
   const note = proposalRow.note ?? (baselineRow as { note?: string } | undefined)?.note;
   const ruleIds = safeBaseline?.rules.map((rule) => rule.rule) ?? [];
+  const offerings = offeringsFor(proposalRow.id);
+  const studyModes = [...new Set(offerings.flatMap((offering) => offering.modes))];
   return {
     id: proposalRow.id,
     name: proposalRow.umu_programme,
@@ -123,6 +137,9 @@ export const programmeCatalogue: CatalogueProgramme[] = proposalEntries.map((pro
     screenable: !unsupported && !isUmbrella && ["bachelors", "diploma", "certificate", "higher_education_certificate"].includes(level),
     issues: issuesFor(proposalRow.id, proposalRow, baselineRow),
     facultyId: (programmeFaculties.programmes as Record<string, string>)[proposalRow.id] ?? null,
+    campusIds: offerings.map((offering) => offering.campusId),
+    studyModes,
+    offerings,
   };
 });
 
@@ -134,11 +151,26 @@ const rulesData = {
 } as unknown as RulesData;
 
 export function listProgrammes(): CatalogueProgramme[] {
-  return programmeCatalogue.map((programme) => ({ ...programme, ruleIds: [...programme.ruleIds], issues: [...programme.issues] }));
+  return programmeCatalogue.map((programme) => ({
+    ...programme,
+    ruleIds: [...programme.ruleIds],
+    issues: [...programme.issues],
+    campusIds: [...programme.campusIds],
+    studyModes: [...programme.studyModes],
+    offerings: programme.offerings.map((offering) => ({ ...offering, modes: [...offering.modes] })),
+  }));
 }
 
 export function listFaculties(): Array<{ id: string; name: string }> {
   return programmeFaculties.faculties.map((faculty) => ({ ...faculty }));
+}
+
+export function listCampuses(): Array<{ id: string; name: string }> {
+  return programmeOfferings.campuses.map((campus) => ({ ...campus }));
+}
+
+export function listStudyModes(): Array<{ id: string; label: string }> {
+  return programmeOfferings.studyModes.map((mode) => ({ ...mode }));
 }
 
 export function facultyOfProgramme(programmeId: string): string | null {

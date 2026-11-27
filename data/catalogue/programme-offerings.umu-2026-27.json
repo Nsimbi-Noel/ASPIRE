@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "status": "assigned-by-project",
+    "approval": "pending UMU confirmation",
+    "source": "UMU Courses 2026-2027 brochure, campus programme tables on pp. 8-12",
+    "note": "v1 is scoped to Main Campus, Nkozi: other campuses and programmes offered only at them are omitted. Study modes are normalised from the brochure key: FT = full-time/day, PT = part-time, Evg = evening, DL = distance learning, WKD = weekend, Hol = holiday. Blended delivery is not treated as a separate programme type. The postgraduate umbrella entry is not selectable."
+  },
+  "campuses": [
+    { "id": "nkozi", "name": "Main Campus, Nkozi" }
+  ],
+  "studyModes": [
+    { "id": "full-time", "label": "Full-time / day" },
+    { "id": "evening", "label": "Evening" },
+    { "id": "distance-learning", "label": "Distance learning" },
+    { "id": "part-time", "label": "Part-time" },
+    { "id": "weekend", "label": "Weekend" },
+    { "id": "holiday", "label": "Holiday" },
+    { "id": "online", "label": "Online" }
+  ],
+  "programmes": {
+    "umu-bagric": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-bsc-agric": [{ "campusId": "nkozi", "modes": ["distance-learning"], "duration": "4 years" }],
+    "umu-bsc-eco-organic": [{ "campusId": "nkozi", "modes": ["distance-learning"], "duration": "4 years" }],
+    "umu-agecon-agribiz": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-bsc-agri-tech": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "4 years" }],
+    "umu-bbam": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-procurement-scm": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-intl-business": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-acct-finance": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-microfinance-ced": [{ "campusId": "nkozi", "modes": ["full-time", "distance-learning"], "duration": "3/4 years" }],
+    "umu-econ-nrm": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-env-design": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-ba-education": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-bsc-education": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-bsc-educ-agri": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-bed-ecd": [{ "campusId": "nkozi", "modes": ["distance-learning"], "duration": "3 years" }],
+    "umu-bsc-cs": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-econ-stats": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-bsc-it": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-bsc-general": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-journalism": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-social-work": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-fashion-textile": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-public-admin": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-llb": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "4 years" }],
+    "umu-inclusive-deaf-educ": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "3 years" }],
+    "umu-bed-primary": [{ "campusId": "nkozi", "modes": ["distance-learning"], "duration": "3 years" }],
+    "umu-heac": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "1 year" }],
+    "umu-dip-animal-prod": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "2 years" }],
+    "umu-dip-crop-farm-mgmt": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "2 years" }],
+    "umu-dip-education-primary": [{ "campusId": "nkozi", "modes": ["distance-learning"], "duration": "2 years" }],
+    "umu-dip-ecd": [{ "campusId": "nkozi", "modes": ["distance-learning"], "duration": "2 years" }],
+    "umu-dip-it": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "2 years" }],
+    "umu-cert-sign-lang": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "1 year" }],
+    "umu-cert-data-analytics": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "1 year" }],
+    "umu-cert-comp-app": [{ "campusId": "nkozi", "modes": ["full-time"], "duration": "1 year" }],
+    "umu-postgraduates": []
+  }
+}

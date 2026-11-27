@@ -38,9 +38,16 @@ describe("parseResultsCsv", () => {
   it("enforces exam-specific grades and subject levels", () => {
     expectCsvError(uce("APP-1,UCE,English,A,2025,"), "row 2, grade");
     expectCsvError(uce("APP-1,UCE,English,C4,2025,PRINCIPAL"), "row 2, subjectLevel");
-    expectCsvError(`${header}\nAPP-1,UACE,History,O,2025,SUBSIDIARY`, "row 2, grade");
     expectCsvError(`${header}\nAPP-1,UACE,History,A,2025,`, "row 2, subjectLevel");
     expect(parseResultsCsv(`${header}\nAPP-1,UACE,History,a,2025,principal`)[0]).toMatchObject({ grade: "A", subjectLevel: "PRINCIPAL" });
+  });
+
+  it("accepts numeric and UNEB subsidiary grades", () => {
+    expect(parseResultsCsv(`${header}\nAPP-1,UCE,English,1,2025,`)[0]).toMatchObject({ grade: "1" });
+    expect(parseResultsCsv(`${header}\nAPP-1,UCE,English,2,2025,`)[0]).toMatchObject({ grade: "2" });
+    expect(parseResultsCsv(`${header}\nAPP-1,UACE,General Paper,O,2025,SUBSIDIARY`)[0]).toMatchObject({ grade: "O", subjectLevel: "SUBSIDIARY" });
+    expect(parseResultsCsv(`${header}\nAPP-1,UACE,Subsidiary Mathematics,d1,2025,SUBSIDIARY`)[0]).toMatchObject({ grade: "1", subjectLevel: "SUBSIDIARY" });
+    expect(parseResultsCsv(`${header}\nAPP-1,UACE,Subsidiary ICT,7,2025,SUBSIDIARY`)[0]).toMatchObject({ grade: "7", subjectLevel: "SUBSIDIARY" });
   });
 
   it("validates sitting and reference and enforces row and byte limits", () => {

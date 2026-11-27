@@ -122,8 +122,12 @@ See [RULE_SOURCES.md](RULE_SOURCES.md) for the source and status. The engine com
 
 1. Choose the programme's essential subjects: the best-performed subjects from each essential list, principal passes only, at most two.
 2. Choose the relevant subject(s) from the remaining subjects.
-3. Add desirable subsidiary points (one point for each Distinction or Credit in General Paper, Sub-Maths or Computer Studies).
+3. Add desirable subsidiary points (one point for each Distinction or Credit in General Paper, Subsidiary Mathematics or Subsidiary ICT). Numeric `1`–`6`, legacy `D1`–`C6`, `O` and pass labels score one point; numeric `7`–`9`, legacy `P7`/`P8`/`F9` and `F` score zero but are valid explicit grades.
 4. Combined weight = O-level weight + sum of (grade points x category weight).
+
+O-level weights are tenths: `D1`/`D2` and numeric `1`/`2` = `3`; `C3`–`C6` and numeric `3`–`6` = `2`; `P7`/`P8` and numeric `7`/`8` = `1`; `F9` and numeric `9` = `0`.
+
+Sub-degree weighting is also advisory. Diploma and HEAC UACE routes cap selection at one essential and two relevant subjects, with essential restricted to Principal grades `A`–`E` and relevant allowing Principal or subsidiary-level `O`. Certificate-holder routes use qualification standing instead: Distinction/First Class = `18`, Credit/Second Class Upper = `15`, Second Class Lower = `12`, Pass = `9`. Certificate rules with `entry_basis: "UCE"` score selected UCE subjects directly (`D1`=`6` down to `F9`=`0`, `P7`/`P8`=`0.5`) plus the O-level weight; they do not multiply UCE points by A-level category weights. `ALL`, `REMAINING`, `ALL_ARTS_SUBJECTS` and `Language subjects` are resolved by shared subject normalization; `ANY_OR_BOTH` still takes up to two named subjects, or one when only one is held.
 
 The result is a score with a breakdown, stored in the trace. It feeds ranking. `minimum_weighted_points` is `null` until UMU sets a threshold, and when it is `null` no applicant fails on score alone.
 
@@ -146,7 +150,7 @@ Every rule set carries `status` (`official`, `adopted-proxy` or `assumed`), `sou
 
 ## 14. Implementation status (v1)
 
-Implemented in `server/rules-engine` (TypeScript, 32 passing tests). See that package's README for usage and known limits.
+Implemented in `server/rules-engine` (TypeScript). There is no package README in this repository; use this document and the current tests under `server/services` as the reference.
 
 Differences from the earlier sections of this document:
 

@@ -36,6 +36,20 @@
       "when": 1793692314979,
       "tag": "0004_own_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1795637393228,
+      "tag": "0005_dazzling_gravity",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1795808647544,
+      "tag": "0006_lovely_skaar",
+      "breakpoints": true
     }
   ]
 }

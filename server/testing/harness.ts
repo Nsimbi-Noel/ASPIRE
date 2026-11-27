@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { migrate } from "drizzle-orm/mysql2/migrator";
 import mysql from "mysql2/promise";
-import { applicantDocuments, examResults, screeningRuns, users, type User } from "../../drizzle/schema";
+import { applicantDocuments, screeningRuns, users, type User } from "../../drizzle/schema";
 
 /** Integration tests run only when TEST_DATABASE_URL points at a disposable MySQL database. */
 export const TEST_DB = process.env.TEST_DATABASE_URL;
@@ -80,14 +80,23 @@ export async function submittedApplication(h: Harness, applicant: User, name: st
   return { id, reference };
 }
 
-/** Marks the evidence an admit decision needs (verified official slips, confirmed results), then screens again. */
-export async function makeAdmitReady(h: Harness, registrar: User, applicationId: string) {
-  await h.db.update(examResults).set({ confirmed: true }).where(eq(examResults.applicationId, applicationId));
+/** Faculty verification path that supplies the evidence an admit decision needs, then screens again. */
+export async function makeAdmitReady(h: Harness, facultyAdmin: User, applicationId: string) {
   await h.db.insert(applicantDocuments).values([
-    { applicationId, documentType: "UACE_RESULT_SLIP", status: "verified" },
-    { applicationId, documentType: "NATIONAL_ID", status: "verified" },
+    { applicationId, documentType: "UACE_RESULT_SLIP", status: "uploaded" },
+    { applicationId, documentType: "NATIONAL_ID", status: "uploaded" },
   ]);
-  await caller(h, registrar).screening.run({ applicationId });
+  const documents = await h.db.select().from(applicantDocuments).where(eq(applicantDocuments.applicationId, applicationId));
+  for (const document of documents) {
+    await caller(h, facultyAdmin).documents.review({ documentId: document.id, status: "verified", reviewNote: "Compared with the uploaded source document; no unresolved discrepancies.", mismatchesResolved: false });
+  }
+  await caller(h, facultyAdmin).applications.confirmOfficialResults({ id: applicationId, reviewNote: "Each active grade was checked against the verified UNEB result slip." });
+  await caller(h, facultyAdmin).screening.run({ applicationId });
+}
+
+/** Records the faculty's say before a registrar final verdict. */
+export async function recommend(h: Harness, facultyAdmin: User, applicationId: string, programmeId: string, recommendation: "admit" | "decline" | "defer" | "request_information" = "admit", reason = "Faculty reviewed the screening evidence and the verified academic record.") {
+  await caller(h, facultyAdmin).staff.recommend({ applicationId, programmeId, recommendation, reason });
 }
 
 export async function latestRun(h: Harness, applicationId: string, programmeId: string) {

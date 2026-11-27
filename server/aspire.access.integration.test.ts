@@ -1,10 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { applicantDocuments, applicationProgrammes, auditEvents, notifications, screeningRuns, users } from "../drizzle/schema";
+import { applicantDocuments, applicationProgrammes, applications, auditEvents, examResults, notifications, screeningRuns, users } from "../drizzle/schema";
 import {
   TEST_DB, TWO_PRINCIPALS, caller, connectTestDb, makeUser, makeWorld, rejectsWith, resetDb, submittedApplication,
   type Harness, type World,
 } from "./testing/harness";
+import { LAUNCH_INTAKE } from "@shared/const";
+import { facultyOfProgramme } from "./services/screeningService";
 
 const suite = TEST_DB ? describe : describe.skip;
 
@@ -51,6 +53,35 @@ suite("roles and faculty scoping (real MySQL)", () => {
       const detail = await caller(h, w.reg).applications.get({ id: a1.id });
       expect(detail.results.every((row) => row.source === "staff_entered")).toBe(true);
     });
+    it("lets faculty administrators verify academic evidence, not registrars", async () => {
+      const inserted = await h.db.insert(applicantDocuments).values([
+        { applicationId: a1.id, documentType: "UACE_RESULT_SLIP", status: "uploaded" },
+        { applicationId: a1.id, documentType: "NATIONAL_ID", status: "uploaded" },
+      ]);
+      const rows = await h.db.select().from(applicantDocuments).where(eq(applicantDocuments.applicationId, a1.id));
+      for (const document of rows) {
+        await rejectsWith("FORBIDDEN", caller(h, w.reg).documents.review({ documentId: document.id, status: "verified", reviewNote: "Registrar must not verify faculty evidence.", mismatchesResolved: false }));
+        await caller(h, w.faSci).documents.review({ documentId: document.id, status: "verified", reviewNote: "Compared with the original source document.", mismatchesResolved: false });
+      }
+      await rejectsWith("FORBIDDEN", caller(h, w.reg).applications.confirmOfficialResults({ id: a1.id, reviewNote: "Registrar must not confirm academic marks." }));
+      await caller(h, w.faSci).applications.confirmOfficialResults({ id: a1.id, reviewNote: "Marks checked against the verified UNEB slip." });
+      const verified = await h.db.select().from(applicantDocuments).where(eq(applicantDocuments.applicationId, a1.id));
+      expect(verified.every((doc) => doc.status === "verified" && doc.reviewedBy === w.faSci.id)).toBe(true);
+      expect(inserted.length).toBe(2);
+    });
+    it("normalizes numeric UCE and UACE subsidiary grades through saveResults", async () => {
+      await caller(h, w.reg).applications.saveResults({ id: a1.id, results: [
+        { exam: "UCE", subject: "Maths", grade: "3", sitting: "2025" },
+        { exam: "UACE", subject: "General Paper", grade: "O", subjectLevel: "SUBSIDIARY", sitting: "2025" },
+        { exam: "UACE", subject: "Subsidiary Mathematics", grade: "d1", subjectLevel: "SUBSIDIARY", sitting: "2025" },
+      ] });
+      const detail = await caller(h, w.reg).applications.get({ id: a1.id });
+      expect(detail.results).toEqual(expect.arrayContaining([
+        expect.objectContaining({ exam: "UCE", subject: "Mathematics", grade: "3" }),
+        expect.objectContaining({ exam: "UACE", subject: "General Paper", grade: "O", subjectLevel: "SUBSIDIARY" }),
+        expect.objectContaining({ exam: "UACE", subject: "Subsidiary Mathematics", grade: "1", subjectLevel: "SUBSIDIARY" }),
+      ]));
+    });
     it("treats the project owner account as a registrar", async () => {
       const c = caller(h, w.owner);
       expect((await c.staff.queue()).map((row) => row.id).sort()).toEqual([a1.id, a2.id].sort());
@@ -66,6 +97,20 @@ suite("roles and faculty scoping (real MySQL)", () => {
       expect(await ids(w.reg)).toEqual([a1.id, a2.id].sort());
       expect(await ids(w.faEdu)).toEqual([]);
       expect(await ids(w.faNone)).toEqual([]);
+    });
+    it("shows faculty administrators only programmes in their own faculty", async () => {
+      const sci = await caller(h, w.faSci).catalog.list();
+      const law = await caller(h, w.faLaw).catalog.list();
+      const all = await caller(h, w.reg).catalog.list();
+      expect(sci.length).toBeGreaterThan(0);
+      expect(sci.every((programme) => facultyOfProgramme(programme.id) === "science")).toBe(true);
+      expect(law.every((programme) => facultyOfProgramme(programme.id) === "law")).toBe(true);
+      expect(sci.some((programme) => programme.id === "umu-bsc-cs")).toBe(true);
+      expect(sci.some((programme) => programme.id === "umu-llb")).toBe(false);
+      expect(all.some((programme) => programme.id === "umu-postgraduates")).toBe(true);
+      expect(await caller(h, w.faNone).catalog.list()).toEqual([]);
+      expect((await caller(h, w.faSci).catalog.faculties()).map((faculty) => faculty.id)).toEqual(["science"]);
+      expect((await caller(h, w.faSci).catalog.choices()).every((programme) => programme.facultyId === "science")).toBe(true);
     });
     it("shows applicants only their own applications", async () => {
       expect((await caller(h, w.app1).applications.list()).map((row) => row.id)).toEqual([a1.id]);
@@ -180,7 +225,10 @@ suite("roles and faculty scoping (real MySQL)", () => {
 
   describe("programme choices", () => {
     it("withdrawing a faculty's only choice removes that faculty's access but keeps the history", async () => {
+      await h.db.insert(notifications).values({ recipientUserId: w.faSci.id, applicationId: a1.id, title: "Science case", message: "A case reference from a now out-of-scope application." });
+      expect((await caller(h, w.faSci).applicant.notifications()).some((row) => row.title === "Science case")).toBe(true);
       await caller(h, w.app1).applications.setProgrammeChoices({ id: a1.id, programmeIds: ["umu-llb"] });
+      expect((await caller(h, w.faSci).applicant.notifications()).some((row) => row.title === "Science case")).toBe(false);
       await rejectsWith("NOT_FOUND", caller(h, w.faSci).applications.get({ id: a1.id }));
       expect(await caller(h, w.faSci).staff.queue()).toEqual([]);
       expect((await caller(h, w.faLaw).staff.queue()).map((row) => row.id).sort()).toEqual([a1.id, a2.id].sort());
@@ -225,36 +273,140 @@ suite("roles and faculty scoping (real MySQL)", () => {
       const detail = await caller(h, w.reg).applications.get({ id: a1.id });
       expect(detail.choices.filter((c) => c.status === "submitted").map((c) => c.programmeId)).toEqual(["umu-bsc-cs", "umu-llb"]);
     });
+    it("keeps applicant preference order independent of outcome-sorted recommendations", async () => {
+      const c = caller(h, w.app1);
+      await c.applications.setProgrammeChoices({ id: a1.id, programmeIds: ["umu-llb", "umu-bsc-cs"] });
+      await h.db.delete(screeningRuns).where(eq(screeningRuns.applicationId, a1.id));
+      await h.db.insert(screeningRuns).values([
+        { applicationId: a1.id, programmeId: "umu-bsc-cs", programmeName: "Bachelor of Science in Computer Science", outcome: "ELIGIBLE", ruleSetVersion: "test", ruleStatus: "assumed", facultyId: "science", inputSnapshot: {}, resultTrace: { explanation: "eligible for this test" } },
+        { applicationId: a1.id, programmeId: "umu-llb", programmeName: "Bachelor of Laws", outcome: "ON_HOLD", ruleSetVersion: "test", ruleStatus: "needs-review", facultyId: "law", inputSnapshot: {}, resultTrace: { explanation: "on hold for this test" } },
+      ]);
+      const detail = await c.applications.get({ id: a1.id });
+      expect(detail.choices.filter((row) => row.status === "submitted").map(({ programmeId, choiceRank }) => ({ programmeId, choiceRank }))).toEqual([{ programmeId: "umu-llb", choiceRank: 1 }, { programmeId: "umu-bsc-cs", choiceRank: 2 }]);
+      expect((detail.recommendations ?? []).map((item) => item.programmeId)).toEqual(["umu-bsc-cs", "umu-llb"]);
+    });
     it("rejects a choice made by someone else's applicant", async () => {
       await rejectsWith("NOT_FOUND", caller(h, w.app2).applications.setProgrammeChoices({ id: a1.id, programmeIds: ["umu-llb"] }));
     });
   });
 
-  describe("committee decisions", () => {
-    it("lets a faculty administrator decide only on programmes in their own faculty", async () => {
-      await rejectsWith("FORBIDDEN", caller(h, w.faLaw).staff.decisions({ applicationId: a1.id, programmeId: "umu-bsc-cs", decision: "decline", reason: "Not in my faculty at all" }));
-      await rejectsWith("FORBIDDEN", caller(h, w.faSci).staff.decisions({ applicationId: a1.id, programmeId: "umu-llb", decision: "decline", reason: "Not in my faculty at all" }));
+  describe("supported intake", () => {
+    it("accepts only the launch intake when creating and updating applications", async () => {
+      const c = caller(h, w.app1);
+      const created = await c.applications.create({ applicantName: "Supported Intake", intake: LAUNCH_INTAKE, level: "bachelors" });
+      expect((await c.applications.get({ id: created.id })).application.intake).toBe(LAUNCH_INTAKE);
+      await rejectsWith("BAD_REQUEST", c.applications.create({ applicantName: "Legacy Intake", intake: "2025/26", level: "bachelors" }));
+      await rejectsWith("BAD_REQUEST", c.applications.create({ applicantName: "Future Intake", intake: "2027/28", level: "bachelors" }));
+      await rejectsWith("BAD_REQUEST", c.applications.create({ applicantName: "Unknown Intake", intake: "not-an-intake", level: "bachelors" }));
+      await c.applications.updateProfile({ id: a1.id, applicantName: "Applicant One", intake: LAUNCH_INTAKE, level: "bachelors" });
+      await rejectsWith("BAD_REQUEST", c.applications.updateProfile({ id: a1.id, applicantName: "Applicant One", intake: "2025/26", level: "bachelors" }));
+      await rejectsWith("BAD_REQUEST", c.applications.updateProfile({ id: a1.id, applicantName: "Applicant One", intake: "2027/28", level: "bachelors" }));
+      await rejectsWith("BAD_REQUEST", c.applications.updateProfile({ id: a1.id, applicantName: "Applicant One", intake: "not-an-intake", level: "bachelors" }));
+      const detail = await c.applications.get({ id: a1.id });
+      expect(detail.application.intake).toBe(LAUNCH_INTAKE);
+    });
+    it("blocks screening and record changes on a legacy intake until it is corrected, without writing new traces", async () => {
+      await h.db.update(applications).set({ intake: "2025/26" }).where(eq(applications.id, a1.id));
+      const runCount = () => h.db.select().from(screeningRuns).where(eq(screeningRuns.applicationId, a1.id));
+      const resultCount = () => h.db.select().from(examResults).where(eq(examResults.applicationId, a1.id));
+      const runsBefore = (await runCount()).length;
+      const resultsBefore = await resultCount();
+
+      await rejectsWith("PRECONDITION_FAILED", caller(h, w.reg).screening.run({ applicationId: a1.id }));
+      await rejectsWith("PRECONDITION_FAILED", caller(h, w.reg).screening.one({ applicationId: a1.id, programmeId: "umu-bsc-cs" }));
+      await rejectsWith("PRECONDITION_FAILED", caller(h, w.app1).applications.saveResults({ id: a1.id, results: [{ exam: "UACE", subject: "Chemistry", grade: "A", subjectLevel: "PRINCIPAL", sitting: "2025" }] }));
+      expect((await runCount()).length).toBe(runsBefore);
+      expect(await resultCount()).toEqual(resultsBefore);
+
+      await caller(h, w.app1).applications.updateProfile({ id: a1.id, applicantName: "Applicant One", intake: LAUNCH_INTAKE, level: "bachelors" });
+      expect((await caller(h, w.app1).applications.get({ id: a1.id })).application.intake).toBe(LAUNCH_INTAKE);
+      await caller(h, w.reg).screening.run({ applicationId: a1.id });
+      expect((await runCount()).length).toBeGreaterThan(runsBefore);
+    });
+    it("refuses a results CSV for a legacy intake before changing any results", async () => {
+      await h.db.update(applications).set({ intake: "2025/26" }).where(eq(applications.id, a1.id));
+      const before = (await h.db.select().from(examResults).where(eq(examResults.applicationId, a1.id))).length;
+      const csvText = `reference,exam,subject,grade,sitting,subjectLevel\n${a1.reference},UACE,Chemistry,A,2025,PRINCIPAL\n`;
+      await rejectsWith("PRECONDITION_FAILED", caller(h, w.reg).staff.importResultsCsv({ csvText }));
+      expect((await h.db.select().from(examResults).where(eq(examResults.applicationId, a1.id))).length).toBe(before);
+    });
+    it("keeps a legacy intake readable and unchanged until it is explicitly corrected", async () => {
+      await h.db.update(applications).set({ intake: "2027/28" }).where(eq(applications.id, a1.id));
+      const before = (await h.db.select().from(applications).where(eq(applications.id, a1.id)))[0]!;
+      const detail = await caller(h, w.app1).applications.get({ id: a1.id });
+      expect(detail.application.intake).toBe("2027/28");
+      const afterRead = (await h.db.select().from(applications).where(eq(applications.id, a1.id)))[0]!;
+      expect(afterRead).toEqual(before);
+      await caller(h, w.app1).applications.updateProfile({ id: a1.id, applicantName: "Applicant One", intake: LAUNCH_INTAKE, level: "bachelors" });
+      expect((await caller(h, w.app1).applications.get({ id: a1.id })).application.intake).toBe(LAUNCH_INTAKE);
+    });
+    it("omits provisional rank and fit from applicant recommendations and orders them by outcome, name and programme id", async () => {
+      const historicalTrace = (explanation: string, rank: number, closenessCoefficient: number) => ({ explanation, recommendation: { rank, closenessCoefficient, method: "stored-historical" } });
+      await h.db.delete(screeningRuns).where(eq(screeningRuns.applicationId, a1.id));
+      await h.db.insert(screeningRuns).values([
+        { applicationId: a1.id, programmeId: "elig-z", programmeName: "Zulu Science", outcome: "ELIGIBLE", ruleSetVersion: "test", ruleStatus: "assumed", facultyId: "science", inputSnapshot: {}, resultTrace: historicalTrace("eligible explanation", 4, 0.1) },
+        { applicationId: a1.id, programmeId: "hold-a", programmeName: "Alpha Law", outcome: "ON_HOLD", ruleSetVersion: "test", ruleStatus: "needs-review", facultyId: "law", inputSnapshot: {}, resultTrace: historicalTrace("hold a explanation", 1, 0.9) },
+        { applicationId: a1.id, programmeId: "hold-b", programmeName: "Beta Law", outcome: "ON_HOLD", ruleSetVersion: "test", ruleStatus: "needs-review", facultyId: "law", inputSnapshot: {}, resultTrace: historicalTrace("hold b explanation", 2, 0.8) },
+        { applicationId: a1.id, programmeId: "hold-c", programmeName: "Alpha Law", outcome: "ON_HOLD", ruleSetVersion: "test", ruleStatus: "needs-review", facultyId: "law", inputSnapshot: {}, resultTrace: historicalTrace("hold c explanation", 3, 0.7) },
+        { applicationId: a1.id, programmeId: "not-eligible-a", programmeName: "Aaaa Not Eligible", outcome: "NOT_ELIGIBLE", ruleSetVersion: "test", ruleStatus: "assumed", facultyId: "science", inputSnapshot: {}, resultTrace: historicalTrace("not eligible explanation", 0, 1) },
+      ]);
+      const traceBefore = await h.db.select({ programmeId: screeningRuns.programmeId, resultTrace: screeningRuns.resultTrace }).from(screeningRuns).where(eq(screeningRuns.applicationId, a1.id));
+      const rankOf = (programmeId: string) => Number((traceBefore.find((row) => row.programmeId === programmeId)!.resultTrace as any).recommendation.rank);
+      expect(rankOf("hold-a")).toBeLessThan(rankOf("elig-z"));
+      const first = await caller(h, w.app1).applications.get({ id: a1.id });
+      const second = await caller(h, w.app1).applications.get({ id: a1.id });
+      const recommendations = first.recommendations ?? [];
+      const expected = ["elig-z", "hold-a", "hold-c", "hold-b"];
+      expect(recommendations.map((item) => item.programmeId)).toEqual(expected);
+      expect((second.recommendations ?? []).map((item) => item.programmeId)).toEqual(expected);
+      expect(recommendations.map((item) => item.outcome)).toEqual(["ELIGIBLE", "ON_HOLD", "ON_HOLD", "ON_HOLD"]);
+      expect(recommendations.map((item) => item.programmeName)).toEqual(["Zulu Science", "Alpha Law", "Alpha Law", "Beta Law"]);
+      for (const item of recommendations) {
+        expect(item).not.toHaveProperty("rank");
+        expect(item).not.toHaveProperty("closenessCoefficient");
+      }
+      expect(recommendations.some((item) => item.programmeId === "not-eligible-a")).toBe(false);
+      const traceAfter = await h.db.select({ programmeId: screeningRuns.programmeId, resultTrace: screeningRuns.resultTrace }).from(screeningRuns).where(eq(screeningRuns.applicationId, a1.id));
+      expect(traceAfter).toEqual(traceBefore);
+    });
+  });
+
+  describe("faculty recommendation and registrar verdict", () => {
+    it("keeps recommendations in the faculty and the final verdict with the registrar", async () => {
+      await rejectsWith("FORBIDDEN", caller(h, w.faSci).staff.decisions({ applicationId: a1.id, programmeId: "umu-bsc-cs", decision: "decline", reason: "Faculty cannot record the final verdict." }));
+      await rejectsWith("FORBIDDEN", caller(h, w.faLaw).staff.recommend({ applicationId: a1.id, programmeId: "umu-bsc-cs", recommendation: "decline", reason: "Not in my faculty at all" }));
+      await rejectsWith("FORBIDDEN", caller(h, w.faSci).staff.recommend({ applicationId: a1.id, programmeId: "umu-llb", recommendation: "decline", reason: "Not in my faculty at all" }));
     });
     it("requires that the applicant applied to the programme", async () => {
-      await rejectsWith("PRECONDITION_FAILED", caller(h, w.faSci).staff.decisions({ applicationId: a1.id, programmeId: "umu-bsc-it", decision: "decline", reason: "The applicant never applied here" }));
+      await rejectsWith("PRECONDITION_FAILED", caller(h, w.faSci).staff.recommend({ applicationId: a1.id, programmeId: "umu-bsc-it", recommendation: "decline", reason: "The applicant never applied here" }));
+      await rejectsWith("PRECONDITION_FAILED", caller(h, w.faSci).screening.one({ applicationId: a1.id, programmeId: "umu-bsc-it" }));
     });
-    it("records a decision against the faculty and shows it only to the right people", async () => {
-      await caller(h, w.faSci).staff.decisions({ applicationId: a1.id, programmeId: "umu-bsc-cs", decision: "decline", reason: "Insufficient evidence for this programme" });
+    it("blocks the registrar's verdict until the faculty has recommended", async () => {
+      await rejectsWith("PRECONDITION_FAILED", caller(h, w.reg).staff.decisions({ applicationId: a1.id, programmeId: "umu-bsc-cs", decision: "decline", reason: "Deciding before the faculty has spoken." }));
+    });
+    it("records the faculty's say and the registrar's verdict, visible only to the right people", async () => {
+      await caller(h, w.faSci).staff.recommend({ applicationId: a1.id, programmeId: "umu-bsc-cs", recommendation: "decline", reason: "Insufficient evidence for this programme" });
+      await caller(h, w.reg).staff.decisions({ applicationId: a1.id, programmeId: "umu-bsc-cs", decision: "decline", reason: "Registrar accepted the faculty's recommendation." });
       const sci = await caller(h, w.faSci).applications.get({ id: a1.id });
       const law = await caller(h, w.faLaw).applications.get({ id: a1.id });
       const app = await caller(h, w.app1).applications.get({ id: a1.id });
       const reg = await caller(h, w.reg).applications.get({ id: a1.id });
       expect(sci.decisions).toHaveLength(1);
-      expect(sci.decisions[0]).toMatchObject({ facultyId: "science", reason: "Insufficient evidence for this programme" });
+      expect(sci.decisions[0]).toMatchObject({ facultyId: "science", reason: "Registrar accepted the faculty's recommendation." });
+      expect(sci.facultyRecommendations).toHaveLength(1);
+      expect(sci.facultyRecommendations[0]).toMatchObject({ recommendation: "decline", facultyId: "science" });
       expect(law.decisions).toHaveLength(0);
+      expect(law.facultyRecommendations).toHaveLength(0);
       expect(reg.decisions).toHaveLength(1);
+      expect(reg.facultyRecommendations).toHaveLength(1);
       expect(app.decisions).toHaveLength(1);
       expect(app.decisions[0]).toEqual({ id: expect.any(Number), programmeId: "umu-bsc-cs", decision: "decline", decidedAt: expect.any(Date) });
       expect("reason" in app.decisions[0]!).toBe(false);
-      const trail = await h.db.select().from(auditEvents).where(eq(auditEvents.action, "committee_decision_recorded"));
+      expect(app.facultyRecommendations).toEqual([]);
+      const trail = await h.db.select().from(auditEvents).where(eq(auditEvents.action, "registrar_final_decision"));
       expect(trail).toHaveLength(1);
       // Law cannot learn of the Science decision through its own history either
-      expect((await caller(h, w.faLaw).staff.audit({ applicationId: a1.id })).some((event) => event.action === "committee_decision_recorded")).toBe(false);
+      expect((await caller(h, w.faLaw).staff.audit({ applicationId: a1.id })).some((event) => event.action === "registrar_final_decision")).toBe(false);
     });
   });
 

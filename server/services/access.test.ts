@@ -51,8 +51,8 @@ describe("history redaction", () => {
   const faculty = (id: string) => ({ "umu-bsc-cs": "science", "umu-llb": "law" } as Record<string, string>)[id];
   const events = [
     { id: 1, actorUserId: 10, action: "application_created", afterData: { reference: "X" } },
-    { id: 2, actorUserId: 11, action: "committee_decision_recorded", afterData: { programmeId: "umu-llb", decision: "admit" } },
-    { id: 3, actorUserId: 12, action: "committee_decision_recorded", afterData: { programmeId: "umu-bsc-cs", decision: "decline" } },
+    { id: 2, actorUserId: 11, action: "registrar_final_decision", afterData: { programmeId: "umu-llb", decision: "admit" } },
+    { id: 3, actorUserId: 12, action: "registrar_final_decision", afterData: { programmeId: "umu-bsc-cs", decision: "decline" } },
     { id: 4, actorUserId: null, action: "screening_run", afterData: { programmesScreened: 37, outcomes: { eligible: 3 }, anomalyFlags: [] } },
   ];
   it("shows the registrar everything", () => {

@@ -37,6 +37,34 @@
     "note": "All O-level subjects done are weighed."
   },
   "subsidiary": "A Distinction or Credit (D1 to C6) in a subsidiary subject such as General Paper, Sub-Maths or Computer Studies carries 1 point.",
+  "sub_degree_weighting": {
+    "diploma_and_heac_uace": {
+      "essential_count": 1,
+      "essential_weight": 3,
+      "essential_grades": ["A", "B", "C", "D", "E"],
+      "relevant_count": 2,
+      "relevant_weight": 2,
+      "relevant_grades": ["A", "B", "C", "D", "E", "O"],
+      "desirable_weight": 1
+    },
+    "certificate_and_diploma_holder_standing": {
+      "Distinction / First Class": 18,
+      "Credit / Second Class Upper": 15,
+      "Second Class Lower": 12,
+      "Pass": 9
+    },
+    "uce_subject_points": {
+      "D1": 6,
+      "D2": 5,
+      "C3": 4,
+      "C4": 3,
+      "C5": 2,
+      "C6": 1,
+      "P7": 0.5,
+      "P8": 0.5,
+      "F9": 0
+    }
+  },
   "selection_rules": [
     "Essential subjects must be passed with a Principal pass. A subject passed at subsidiary level (grade O) can count as Relevant but not Essential.",
     "At most three principal-level subjects carry a weight of 3, 2 or 1 for a given candidate.",

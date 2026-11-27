@@ -77,6 +77,8 @@ export const applicationProgrammes = mysqlTable("applicationProgrammes", {
   applicationId: varchar("applicationId", { length: 36 }).notNull().references(() => applications.id, { onDelete: "cascade" }),
   programmeId: varchar("programmeId", { length: 80 }).notNull(),
   facultyId: varchar("facultyId", { length: 80 }).notNull().references(() => faculties.id, { onDelete: "restrict" }),
+  campusId: varchar("campusId", { length: 80 }),
+  studyModeId: varchar("studyModeId", { length: 80 }),
   choiceRank: int("choiceRank").notNull(),
   status: mysqlEnum("choiceStatus", ["submitted", "withdrawn"]).default("submitted").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -178,6 +180,22 @@ export const screeningRuns = mysqlTable("screeningRuns", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => [
   index("screeningRuns_application_faculty").on(table.applicationId, table.facultyId),
+]);
+
+/** The faculty's say on an application. The registrar records the final verdict separately. */
+export const facultyRecommendations = mysqlTable("facultyRecommendations", {
+  id: int("id").autoincrement().primaryKey(),
+  applicationId: varchar("applicationId", { length: 36 }).notNull().references(() => applications.id, { onDelete: "cascade" }),
+  programmeId: varchar("programmeId", { length: 80 }).notNull(),
+  recommendation: mysqlEnum("facultyRecommendation", ["admit", "decline", "defer", "request_information"]).notNull(),
+  reason: text("reason").notNull(),
+  facultyId: varchar("facultyId", { length: 80 }),
+  ruleSetRecordId: varchar("ruleSetRecordId", { length: 100 }),
+  screeningRunId: int("screeningRunId").notNull().references(() => screeningRuns.id, { onDelete: "cascade" }),
+  recommendedBy: int("recommendedBy").notNull().references(() => users.id, { onDelete: "restrict" }),
+  recommendedAt: timestamp("recommendedAt").defaultNow().notNull(),
+}, (table) => [
+  index("facultyRecommendations_application_programme").on(table.applicationId, table.programmeId),
 ]);
 
 export const committeeDecisions = mysqlTable("committeeDecisions", {

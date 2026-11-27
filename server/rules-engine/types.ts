@@ -1,3 +1,5 @@
+import { type UaceLevel, UCE_GRADE_OPTIONS, UACE_PRINCIPAL_GRADES, UACE_SUBSIDIARY_GRADES } from "@shared/const";
+
 // ---------- Outcomes ----------
 export type Outcome = "ELIGIBLE" | "NOT_ELIGIBLE" | "ON_HOLD";
 export type CheckStatus = "PASS" | "FAIL" | "REVIEW";
@@ -6,10 +8,12 @@ export type HoldReason = "MISSING_DOCUMENTS" | "MANUAL_REVIEW";
 // ---------- Applicant ----------
 export type Level = "bachelors" | "diploma" | "certificate" | "higher_education_certificate";
 
-/** UCE (O-level) grades per subject. */
-export type OLevelGrade = "D1" | "D2" | "C3" | "C4" | "C5" | "C6" | "P7" | "P8" | "F9";
+/** UCE (O-level) grades: legacy D1–F9 or numeric 1–9. */
+export type OLevelGrade = (typeof UCE_GRADE_OPTIONS)[number];
 /** UACE principal grades. "O" is a subsidiary-level pass in a principal subject. */
-export type PrincipalGrade = "A" | "B" | "C" | "D" | "E" | "O" | "F";
+export type PrincipalGrade = (typeof UACE_PRINCIPAL_GRADES)[number];
+/** UACE subsidiary grades: numeric 1–9, O/F, and legacy D1–F9 labels. */
+export type UaceSubsidiaryGrade = (typeof UACE_SUBSIDIARY_GRADES)[number];
 
 export interface UceResult {
   subject: string;
@@ -19,9 +23,8 @@ export interface UceResult {
 
 export interface UaceResult {
   subject: string;
-  /** PRINCIPAL subjects use A-F/O. SUBSIDIARY subjects (General Paper, Sub-Maths, Computer Studies) use D1-F9. */
-  level: "PRINCIPAL" | "SUBSIDIARY";
-  grade: PrincipalGrade | OLevelGrade;
+  level: UaceLevel;
+  grade: PrincipalGrade | UaceSubsidiaryGrade;
   sitting: string;
 }
 
@@ -77,23 +80,40 @@ export interface RuleSetMeta {
 }
 
 // ---------- Weighting (adopted system) ----------
-export type SubjectList = string[] | "ALL" | "REMAINING" | "REMAINING_EXCLUDING_FINE_ART" | "ALL_ARTS_SUBJECTS";
+export type EntryBasis = "UACE" | "UCE" | "UACE_DIRECT" | "DIPLOMA" | "CERTIFICATE_HOLDER" | "HIGHER_EDUCATION_ACCESS";
+export type SubjectList = string[] | "ALL" | "REMAINING" | "REMAINING_EXCLUDING_FINE_ART" | "ALL_ARTS_SUBJECTS" | "Language subjects";
 
 export type Selector =
   | { type: "REQUIRED"; subjects: string[] }
   | { type: "BEST_OF"; n?: number; n_min?: number; n_max?: number; from: SubjectList }
-  | { type: "ANY_OR_BOTH"; subjects: string[] };
+  | { type: "ANY_OR_BOTH"; n?: number; subjects: string[] };
 
 export interface WeightVariant {
   id: string;
   essential: Selector[];
   relevant: Selector[];
   desirable: string[];
+  entry_basis?: EntryBasis;
+}
+
+export interface SubDegreeWeighting {
+  diploma_and_heac_uace: {
+    essential_count: number;
+    essential_weight: number;
+    essential_grades: string[];
+    relevant_count: number;
+    relevant_weight: number;
+    relevant_grades: string[];
+    desirable_weight: number;
+  };
+  certificate_and_diploma_holder_standing: Record<string, number>;
+  uce_subject_points: Record<string, number>;
 }
 
 export interface WeightingSystem {
   category_weights: { essential: number; relevant: number; desirable: number };
   alevel_points: Record<string, number>;
+  sub_degree_weighting?: SubDegreeWeighting;
 }
 
 export interface Weighting {
@@ -133,7 +153,7 @@ export interface RouteResult {
 export interface ScoreLine {
   subject: string;
   grade: string;
-  category: "essential" | "relevant" | "desirable";
+  category: "essential" | "relevant" | "desirable" | "standing";
   points: number;
   weight: number;
   contribution: number;
@@ -144,6 +164,8 @@ export interface WeightedScore {
   alevel: number;
   desirable: number;
   olevel: number;
+  uce?: number;
+  standing?: number;
   variant?: string;
   lines: ScoreLine[];
   warnings: string[];
