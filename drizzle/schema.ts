@@ -61,6 +61,7 @@ export const applications = mysqlTable("applications", {
   level: mysqlEnum("level", ["bachelors", "diploma", "certificate", "higher_education_certificate"]).notNull(),
   requestedProgrammeId: varchar("requestedProgrammeId", { length: 80 }),
   status: mysqlEnum("applicationStatus", ["draft", "submitted", "in_review", "completed"]).default("draft").notNull(),
+  deletedAt: timestamp("deletedAt"),
   submittedAt: timestamp("submittedAt"),
   documentDeadline: timestamp("documentDeadline"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

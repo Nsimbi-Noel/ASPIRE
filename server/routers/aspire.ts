@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
@@ -47,6 +47,7 @@ function allowRoles(...allowed: AspireRole[]) {
 const staff = allowRoles("faculty_administrator", "registrar");
 const facultyAdmin = allowRoles("faculty_administrator");
 const registrar = allowRoles("registrar");
+const applicant = allowRoles("applicant");
 const applicantOrStaff = allowRoles("applicant", "faculty_administrator", "registrar");
 const applicantOrRegistrar = allowRoles("applicant", "registrar");
 
@@ -212,7 +213,7 @@ async function persistCurrentScreening(applicationId: string, actorUserId: numbe
   if (!application) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
   assertSupportedIntake(application);
   const engineInput = await getApplicantEngineInput(applicationId);
-  const sameIntakeRows = await db.select({ id: applications.id }).from(applications).where(and(eq(applications.applicantUserId, application.applicantUserId), eq(applications.intake, application.intake)));
+  const sameIntakeRows = await db.select({ id: applications.id }).from(applications).where(and(eq(applications.applicantUserId, application.applicantUserId), eq(applications.intake, application.intake), isNull(applications.deletedAt)));
   const anomalyFlags = detectApplicantAnomalies(engineInput.results, sameIntakeRows.length);
   const results = screenAllProgrammes(engineInput.applicant, await ruleLookup(db));
   const snapshot = {
@@ -536,6 +537,27 @@ export const aspireRouter = router({
       if (input.requestedProgrammeId) await syncChoices(db, id, [input.requestedProgrammeId]);
       await writeAudit({ actorUserId: ctx.user!.id, action: "application_created", entityType: "application", entityId: id, afterData: { reference, intake: input.intake, level: input.level } });
       return { id, reference };
+    }),
+    delete: applicant.input(z.object({ id: z.string().min(1) })).mutation(async ({ ctx, input }) => {
+      const { db, application } = await applicationForActor(input.id, ctx.user!);
+      if (application.status !== "draft") throw new TRPCError({ code: "CONFLICT", message: "Only draft applications can be deleted. Submitted cases need staff correction." });
+      await db.update(applications).set({ deletedAt: new Date() }).where(and(
+        eq(applications.id, application.id),
+        eq(applications.applicantUserId, ctx.user!.id),
+        eq(applications.status, "draft"),
+        isNull(applications.deletedAt),
+      ));
+      const saved = (await db.select({ deletedAt: applications.deletedAt }).from(applications).where(and(eq(applications.id, application.id), isNotNull(applications.deletedAt))).limit(1))[0];
+      if (!saved?.deletedAt) throw new TRPCError({ code: "CONFLICT", message: "The application changed while it was being deleted. Try again." });
+      await writeAudit({
+        actorUserId: ctx.user!.id,
+        action: "application_deleted",
+        entityType: "application",
+        entityId: application.id,
+        beforeData: { reference: application.reference, status: application.status, intake: application.intake },
+        afterData: { deletedAt: saved.deletedAt.toISOString() },
+      });
+      return { id: application.id, reference: application.reference };
     }),
     get: applicantOrStaff.input(z.object({ id: z.string().min(1) })).query(async ({ ctx, input }) => {
       const { db, application, scope } = await applicationForActor(input.id, ctx.user!);

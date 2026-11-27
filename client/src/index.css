@@ -5502,8 +5502,12 @@ button {
   transition: background 0.12s;
 }
 a.table-row:hover,
-.application-row:hover {
+.application-row:hover,
+.table-row:hover {
   background: #f8fbf8;
+}
+.case-row-link {
+  display: contents;
 }
 .applicant-cell {
   align-items: center;

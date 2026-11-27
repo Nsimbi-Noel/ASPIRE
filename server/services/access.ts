@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { applicationProgrammes, applications, committeeDecisions, facultyRecommendations, screeningRuns } from "../../drizzle/schema";
 
 /**
@@ -101,21 +101,25 @@ export function redactDecisionForApplicant<T extends { id: number; programmeId: 
 // `db` is only used to build a subquery, so any Drizzle MySQL database works.
 type AnyDb = { select: (...args: any[]) => any };
 
-/** Which applications the actor may see. Undefined means no restriction. */
-export function applicationVisibility(db: AnyDb, scope: Scope): SQL | undefined {
+/** Which applications the actor may see. Soft-deleted drafts stay in storage but never enter a queue or detail view. */
+export function applicationVisibility(db: AnyDb, scope: Scope): SQL {
+  const available = isNull(applications.deletedAt);
   switch (scope.kind) {
     case "all":
-      return undefined;
+      return available;
     case "own":
-      return eq(applications.applicantUserId, scope.userId);
+      return and(available, eq(applications.applicantUserId, scope.userId))!;
     case "faculty":
-      return inArray(
-        applications.id,
-        db
-          .select({ id: applicationProgrammes.applicationId })
-          .from(applicationProgrammes)
-          .where(and(eq(applicationProgrammes.facultyId, scope.facultyId), eq(applicationProgrammes.status, "submitted"))),
-      );
+      return and(
+        available,
+        inArray(
+          applications.id,
+          db
+            .select({ id: applicationProgrammes.applicationId })
+            .from(applicationProgrammes)
+            .where(and(eq(applicationProgrammes.facultyId, scope.facultyId), eq(applicationProgrammes.status, "submitted"))),
+        ),
+      )!;
     case "none":
       return sql`1 = 0`;
   }

@@ -290,6 +290,32 @@ suite("roles and faculty scoping (real MySQL)", () => {
     });
   });
 
+  describe("draft deletion", () => {
+    it("lets applicants soft-delete only their own drafts and hides them everywhere", async () => {
+      const c = caller(h, w.app1);
+      const draft = await c.applications.create({ applicantName: "Delete Me", intake: LAUNCH_INTAKE, level: "bachelors" });
+      await c.applications.setProgrammeChoices({ id: draft.id, programmeIds: ["umu-bsc-cs"] });
+      expect((await caller(h, w.faSci).staff.queue()).map((row) => row.id)).toContain(draft.id);
+      await rejectsWith("NOT_FOUND", caller(h, w.app2).applications.delete({ id: draft.id }));
+      await rejectsWith("FORBIDDEN", caller(h, w.faSci).applications.delete({ id: draft.id }));
+      await rejectsWith("FORBIDDEN", caller(h, w.reg).applications.delete({ id: draft.id }));
+      await rejectsWith("CONFLICT", c.applications.delete({ id: a1.id }));
+      await c.applications.delete({ id: draft.id });
+      expect((await c.applications.list()).map((row) => row.id)).not.toContain(draft.id);
+      expect((await caller(h, w.faSci).staff.queue()).map((row) => row.id)).not.toContain(draft.id);
+      expect((await caller(h, w.reg).staff.queue()).map((row) => row.id)).not.toContain(draft.id);
+      await rejectsWith("NOT_FOUND", c.applications.get({ id: draft.id }));
+      await rejectsWith("NOT_FOUND", caller(h, w.reg).applications.get({ id: draft.id }));
+      const stored = (await h.db.select().from(applications).where(eq(applications.id, draft.id)))[0];
+      expect(stored?.deletedAt).toBeInstanceOf(Date);
+      expect(stored?.status).toBe("draft");
+      const events = await h.db.select().from(auditEvents).where(and(eq(auditEvents.entityType, "application"), eq(auditEvents.entityId, draft.id), eq(auditEvents.action, "application_deleted")));
+      expect(events).toHaveLength(1);
+      expect(events[0]?.actorUserId).toBe(w.app1.id);
+      expect((await h.db.select().from(applicationProgrammes).where(eq(applicationProgrammes.applicationId, draft.id))).length).toBeGreaterThan(0);
+    });
+  });
+
   describe("supported intake", () => {
     it("accepts only the launch intake when creating and updating applications", async () => {
       const c = caller(h, w.app1);

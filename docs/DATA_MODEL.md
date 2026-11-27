@@ -6,7 +6,7 @@ Defined in `drizzle/schema.ts` (MySQL, Drizzle). Migrations are in `drizzle/`.
 | --- | --- | --- |
 | `users` | Email-and-password accounts | `passwordHash` (scrypt), `mustChangePassword`, `failedLoginCount`, `lockedUntil`, `sessionVersion`, `isActive`; `aspireRole` (applicant, registrar, faculty_administrator) and `facultyId` for faculty administrators |
 | `faculties` | The 11 faculties, schools and directorates in the brochure | Reference data, created by migration |
-| `applications` | One application per applicant per intake | `requestedProgrammeId` is the first choice, kept in step with `applicationProgrammes` |
+| `applications` | One application per applicant per intake | `requestedProgrammeId` is the first choice, kept in step with `applicationProgrammes`; `deletedAt` marks an applicant-deleted draft, which is hidden from all list/detail views while the rows and audit history remain |
 | `applicationProgrammes` | The programmes an application is for | What links an application to a faculty. `facultyId`, `campusId` and `studyModeId` are copied from the catalogue when the choice is made, with `choiceRank` and `status` (submitted or withdrawn); duration is resolved from catalogue offerings for display |
 | `examResults` | UCE and UACE subject grades | `source`: applicant_entered, staff_entered, document_extracted. Superseded rows are kept inactive |
 | `applicantQualifications` | Diploma, certificate and access programme entries | |

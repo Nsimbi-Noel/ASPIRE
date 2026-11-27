@@ -35,7 +35,7 @@ Three roles, assigned by the registrar.
 
 | Role | Can do |
 | --- | --- |
-| `applicant` | Create and edit their own application, choose up to five programmes (with faculty, campus and study-mode details shown from the catalogue), upload documents, see their own results and explanations, appeal. Sees a final decision's outcome and date, never the faculty's or registrar's reasoning. |
+| `applicant` | Create and edit their own application, choose up to five programmes (with faculty, campus and study-mode details shown from the catalogue), upload documents, delete drafts, see their own results and explanations, appeal. Sees a final decision's outcome and date, never the faculty's or registrar's reasoning. |
 | `faculty_administrator` | Verify academic documents, confirm official results, run screenings, record the faculty's recommendation, resolve appeals and reopen cases, **only for programmes and applicants in their own faculty**. Cannot edit an applicant's data or issue a final verdict. |
 | `registrar` | Everything, across all faculties: assign roles and faculties, maintain rule versions and record UMU's approval, import results, enter data for an applicant, and record the final verdict after the faculty's recommendation. |
 
@@ -43,7 +43,7 @@ The project owner account acts as a registrar. A faculty administrator with no f
 
 ### Faculty scoping
 
-An applicant belongs to a faculty only through the programmes they applied to (`applicationProgrammes`). A faculty administrator sees only programmes in their faculty, and sees an application while it has a submitted choice in their faculty, including only that faculty's screening runs, recommendations and verdicts. Withdrawing a choice removes that faculty's access to the applicant, including stale notifications, but keeps the history. This is enforced in the server for every procedure and covered by integration tests against a real MySQL database. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+An applicant belongs to a faculty only through the programmes they applied to (`applicationProgrammes`). A faculty administrator sees only programmes in their faculty, and sees an application while it has a submitted choice in their faculty, including only that faculty's screening runs, recommendations and verdicts. Withdrawing a choice removes that faculty's access to the applicant, including stale notifications, but keeps the history. An applicant can delete only a draft; deletion marks `applications.deletedAt`, hides it from every applicant and staff list/detail view, and keeps the stored rows and audit event for accountability. This is enforced in the server for every procedure and covered by integration tests against a real MySQL database. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 The admissions decision has two stages: the faculty administrator verifies the academic evidence and records a recommendation; only the registrar can record the final verdict, and only after that recommendation against the latest screening run. Applicants never see internal recommendations or reasoning.
 
@@ -84,7 +84,7 @@ $env:TEST_DATABASE_URL="mysql://user:password@127.0.0.1:3306/aspire_test"; pnpm 
 
 ## Upgrading an existing database
 
-Migration `0003` reduces the roles (`officer`/`committee` to `faculty_administrator`, `administrator` to `registrar`) and seeds the 11 faculties; `0004` adds account columns; `0005` adds campus/study-mode choice columns to `applicationProgrammes`; `0006` adds `facultyRecommendations`. Assign a faculty to every faculty administrator or they will see nothing.
+Migration `0003` reduces the roles (`officer`/`committee` to `faculty_administrator`, `administrator` to `registrar`) and seeds the 11 faculties; `0004` adds account columns; `0005` adds campus/study-mode choice columns to `applicationProgrammes`; `0006` adds `facultyRecommendations`; `0007` adds `applications.deletedAt` for applicant draft deletion. Assign a faculty to every faculty administrator or they will see nothing.
 
 ## Documentation
 

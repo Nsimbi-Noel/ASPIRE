@@ -6,11 +6,11 @@ Our task list merged with what this application now delivers. Items marked **(bl
 
 ### Before first use
 - [x] Committed and pushed to `origin/test-1`
-- [ ] Run `pnpm db:migrate` on your database (`0003` reduces the roles and adds faculties; `0004` adds account columns; `0005` adds campus/study-mode choice columns; `0006` adds faculty recommendations)
+- [ ] Run `pnpm db:migrate` on your database (`0003` reduces the roles and adds faculties; `0004` adds account columns; `0005` adds campus/study-mode choice columns; `0006` adds faculty recommendations; `0007` adds soft-delete support for applicant drafts)
 - [ ] If staff accounts already exist, assign each faculty administrator a faculty under Rule governance (until then they see nothing)
 - [ ] Sign in as the project owner, open **Rule governance** and create the first rule versions from the data files
 - [ ] Click through every screen as each role (registrar, a faculty administrator, an applicant), including the programme catalogue's faculty/campus/mode filters and the campus/study-mode details shown in application choices. The interface was type-checked and built, but not viewed in a browser
-- [ ] Run `pnpm test:db` against a disposable MySQL database on your own machine (passed here: access 40, rules 17; auth baseline 8 passed/3 failed; document HTTP suite skipped for missing tools)
+- [ ] Run `pnpm test:db` against a disposable MySQL database on your own machine (passed here: access 41, rules 17; auth baseline 8 passed/3 failed; document HTTP suite skipped for missing tools)
 
 ### Data and catalogue
 - [ ] Add tuition fees to the programme catalogue from the brochure (campuses, study modes and per-programme offerings with duration are imported and exposed in the catalogue and application choices)

@@ -9,11 +9,11 @@ Using `C:\Users\edward_admin\Desktop\ASPIRE\node_modules\.bin\pnpm.cmd` (global 
 | Check | Result |
 | --- | --- |
 | `pnpm check` | passed |
-| `pnpm test` | 18 files passed, 120 tests passed; 4 integration files skipped by design (76 tests) |
-| `pnpm exec vitest run server/aspire.access.integration.test.ts` | 40 passed |
+| `pnpm test` | 18 files passed, 120 tests passed; 4 integration files skipped by design (77 tests) |
+| `pnpm exec vitest run server/aspire.access.integration.test.ts` | 41 passed |
 | `pnpm exec vitest run server/aspire.rules.integration.test.ts` | 17 passed |
-| `pnpm db:migrate` | migration `0006` applied successfully |
-| `pnpm build` | passed; 1,723 modules transformed; `dist/index.js` 282.7 kB |
+| `pnpm db:migrate` | migrations through `0007` applied successfully |
+| `pnpm build` | passed; 1,723 modules transformed; `dist/index.js` 284.3 kB |
 | `pnpm e2e:production` | 8 HTTP checks passed |
 | `git diff --check` | no whitespace errors; CRLF conversion warnings only |
 

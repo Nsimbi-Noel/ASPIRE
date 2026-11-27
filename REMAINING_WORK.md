@@ -18,7 +18,7 @@ Everything still open after the account replacement and the new test suites. The
 - [ ] Create the first registrar with `pnpm create:registrar`, then create the rule versions under **Rule governance**
 - [ ] If staff accounts already exist, assign each faculty administrator a faculty under Rule governance (until then they see nothing)
 - [x] Committed and pushed to `origin/test-1`
-- [ ] Run `pnpm db:migrate` on your database (`0003` reduces the roles and adds faculties; `0004` adds account columns; `0005` adds campus/study-mode choice columns; `0006` adds faculty recommendations)
+- [ ] Run `pnpm db:migrate` on your database (`0003` reduces the roles and adds faculties; `0004` adds account columns; `0005` adds campus/study-mode choice columns; `0006` adds faculty recommendations; `0007` adds soft-delete support for applicant drafts)
 
 ### Data and catalogue
 - [ ] Add tuition fees to the programme catalogue from the brochure (campuses, study modes and per-programme offerings with duration are imported and exposed in the catalogue and application choices)

@@ -15,7 +15,8 @@ Design for compliance with Uganda's **Data Protection and Privacy Act, 2019**:
 - collect only what is needed,
 - restrict access by role,
 - set retention limits,
-- encrypt data at rest and in transit.
+- encrypt data at rest and in transit,
+- treat applicant draft deletion as a soft delete: hidden from all interfaces immediately, retained with an audit event until a retention or purge policy is formally approved.
 
 ## Fairness safeguards
 

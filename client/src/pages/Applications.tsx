@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useRoute, useSearch } from "wouter";
-import { ArrowLeft, ArrowRight, Check, CircleAlert, Download, FileCheck2, FilePlus2, FileText, Plus, RefreshCw, Save, Send, ShieldCheck, UploadCloud } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CircleAlert, Download, FileCheck2, FilePlus2, FileText, Plus, RefreshCw, Save, Send, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AspireShell } from "@/components/AspireShell";
@@ -95,7 +95,9 @@ export function ApplicationsPage() {
   const auth = trpc.aspire.profile.me.useQuery();
   const list = trpc.aspire.applications.list.useQuery();
   const queue = trpc.aspire.staff.queue.useQuery(undefined, { enabled: Boolean(auth.data && auth.data.role !== "applicant") });
+  const utils = trpc.useUtils();
   const [filter, setFilter] = useState<"all" | "review" | "hold">("all");
+  const deleteDraft = trpc.aspire.applications.delete.useMutation({ onSuccess: (res) => { toast.success(`Draft ${res.reference} deleted.`); void utils.aspire.applications.list.invalidate(); } });
   const staff = auth.data?.role !== "applicant";
   const allRows = staff ? queue.data : list.data;
   const visibleRows = (allRows ?? []).filter((app) => {
@@ -107,10 +109,13 @@ export function ApplicationsPage() {
     <div className="toolbar-row"><div className="filter-pills">{([ ["all", "All"], ["review", "Needs review"], ["hold", "On hold"] ] as const).map(([value, label]) => <button key={value} onClick={() => setFilter(value)} className={`filter-pill ${filter === value ? "filter-pill-active" : ""}`}>{label}</button>)}</div>{(!staff || auth.data?.role === "registrar") && <Link href="/applications/new"><Button className="button-primary"><Plus size={16} />New application</Button></Link>}</div>
     <div className="panel table-panel">
       <div className="table-head case-table-head"><span>APPLICANT</span><span>REFERENCE</span><span>INTAKE</span><span>LEVEL</span><span>STATUS</span><span /></div>
-      {(staff ? queue.isLoading || auth.isLoading : list.isLoading) ? <PageLoading /> : (staff ? queue.error : list.error) ? <div className="empty-inline">Could not load applications. Please retry.</div> : visibleRows.length ? visibleRows.map((app, i) => <Link className="table-row case-table-row" href={`/applications/${app.id}`} key={app.id}>
-        <div className="applicant-cell"><span className={`mini-avatar avatar-${i % 5}`}>{app.applicantName.slice(0, 1).toUpperCase()}</span><span><strong>{app.applicantName}</strong><small>{staff ? "Applicant record" : "Your application"}</small></span></div>
-        <span className="mono muted">{app.reference}</span><span>{app.intake}{!isSupportedIntake(app.intake) && <small className="muted"> · unsupported</small>}</span><span className="capitalize">{app.level.replaceAll("_", " ")}</span><span className={`status-tag status-${app.status}`}>{app.status.replaceAll("_", " ")}</span><ArrowRight size={16} className="row-arrow" />
-      </Link>) : <div className="empty-state"><div className="empty-icon"><FileText size={22} /></div><h3>No applications found</h3><p>{filter === "all" ? "Start a draft, then enter results and supporting documents." : "No cases currently match this queue filter."}</p>{filter === "all" && (!staff || auth.data?.role === "registrar") && <Link href="/applications/new"><Button className="button-primary">Create application<ArrowRight size={16} /></Button></Link>}</div>}
+      {(staff ? queue.isLoading || auth.isLoading : list.isLoading) ? <PageLoading /> : (staff ? queue.error : list.error) ? <div className="empty-inline">Could not load applications. Please retry.</div> : visibleRows.length ? visibleRows.map((app, i) => <div className="table-row case-table-row" key={app.id}>
+        <Link className="case-row-link" href={`/applications/${app.id}`}>
+          <div className="applicant-cell"><span className={`mini-avatar avatar-${i % 5}`}>{app.applicantName.slice(0, 1).toUpperCase()}</span><span><strong>{app.applicantName}</strong><small>{staff ? "Applicant record" : "Your application"}</small></span></div>
+          <span className="mono muted">{app.reference}</span><span>{app.intake}{!isSupportedIntake(app.intake) && <small className="muted"> · unsupported</small>}</span><span className="capitalize">{app.level.replaceAll("_", " ")}</span><span className={`status-tag status-${app.status}`}>{app.status.replaceAll("_", " ")}</span>
+        </Link>
+        {!staff && app.status === "draft" ? <Button variant="destructive" size="sm" aria-label={`Delete draft ${app.reference}`} title="Delete draft" disabled={deleteDraft.isPending} onClick={() => { if (window.confirm(`Delete draft ${app.reference}? Its results, documents and programme choices will no longer be shown, and this cannot be undone.`)) deleteDraft.mutate({ id: app.id }); }}><Trash2 size={15} /></Button> : <ArrowRight size={16} className="row-arrow" />}
+      </div>) : <div className="empty-state"><div className="empty-icon"><FileText size={22} /></div><h3>No applications found</h3><p>{filter === "all" ? "Start a draft, then enter results and supporting documents." : "No cases currently match this queue filter."}</p>{filter === "all" && (!staff || auth.data?.role === "registrar") && <Link href="/applications/new"><Button className="button-primary">Create application<ArrowRight size={16} /></Button></Link>}</div>}
       <div className="table-foot"><span>{visibleRows.length} application{visibleRows.length === 1 ? "" : "s"}</span><span>Personal records are visible only to authorized users.</span></div>
     </div>
     {staff && <ResultsCsvTools canImport={auth.data?.role === "registrar"} />}
@@ -196,6 +201,7 @@ export function ApplicationDetailPage() {
   const makeRecommendation = trpc.aspire.staff.recommend.useMutation({ onSuccess: (res) => { toast.success(res.message); setDecisionReason(""); void utils.aspire.applications.get.invalidate({ id }); } });
   const makeDecision = trpc.aspire.staff.decisions.useMutation({ onSuccess: (res) => { toast.success(res.message); setDecisionReason(""); void utils.aspire.applications.get.invalidate({ id }); } });
   const reopenCase = trpc.aspire.staff.reopenApplication.useMutation({ onSuccess: () => { toast.success("Case reopened with an audit record; the applicant was notified."); setReopenReason(""); void utils.aspire.applications.get.invalidate({ id }); void utils.aspire.staff.queue.invalidate(); } });
+  const deleteDraft = trpc.aspire.applications.delete.useMutation({ onSuccess: (res) => { toast.success(`Draft ${res.reference} deleted.`); void utils.aspire.applications.list.invalidate(); void navigate("/applications"); } });
   const isStaff = (profile.data?.role ?? "applicant") !== "applicant";
 
   useEffect(() => {
@@ -275,7 +281,7 @@ export function ApplicationDetailPage() {
 
   const stepNav = !isStaff && <div className="stepper-inline">{APPLICANT_STEPS.map((item) => <button key={item.id} type="button" className={`stepper-chip ${step === item.id ? "stepper-chip-active" : ""}`} onClick={() => { setStep(item.id); void navigate(`/applications/${id}?step=${item.id}`); }}><span>{item.id}</span><div><strong>{item.label}</strong><small>{item.detail}</small></div></button>)}</div>;
 
-  const personalStep = <section className="panel case-panel"><div className="panel-heading"><div><p className="eyebrow">STEP 1 · PERSONAL DETAILS</p><h2>Your details</h2></div><span className="step-count">01 / 03</span></div><ApplicationBasicsEditor application={current.application} role={role} choices={current.choices} mode="profile" /><div className="form-actions"><Button className="button-primary" onClick={() => { setStep(2); void navigate(`/applications/${id}?step=2`); }}>Continue to results<ArrowRight size={15} /></Button></div></section>;
+  const personalStep = <section className="panel case-panel"><div className="panel-heading"><div><p className="eyebrow">STEP 1 · PERSONAL DETAILS</p><h2>Your details</h2></div><span className="step-count">01 / 03</span></div><ApplicationBasicsEditor application={current.application} role={role} choices={current.choices} mode="profile" /><div className="form-actions">{!isStaff && current.application.status === "draft" && <Button variant="destructive" disabled={deleteDraft.isPending} onClick={() => { if (window.confirm(`Delete draft ${current.application.reference}? Its results, documents and programme choices will no longer be shown, and this cannot be undone.`)) deleteDraft.mutate({ id }); }}><Trash2 size={15} />Delete draft</Button>}<Button className="button-primary" onClick={() => { setStep(2); void navigate(`/applications/${id}?step=2`); }}>Continue to results<ArrowRight size={15} /></Button></div>{deleteDraft.error && <p className="form-error">{deleteDraft.error.message}</p>}</section>;
 
   const resultsStep = <><section className="panel case-panel"><div className="panel-heading"><div><p className="eyebrow">STEP 2 · RESULTS & DOCUMENTS</p><h2>Examination results</h2></div><span className="panel-meta">{activeResultRows.length} active entries</span></div>
         <fieldset className="case-fields" disabled={caseLocked}>
