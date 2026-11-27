@@ -1,6 +1,6 @@
 # ASPIRE — implementation plan
 
-> **Decisions applied in October 2026** (they override anything below that says otherwise)
+> **Decisions applied in October–November 2026** (they override anything below that says otherwise)
 >
 > - **Roles:** applicant, registrar and faculty administrator only. The earlier officer, committee and administrator roles were removed.
 > - **Faculty scoping:** a faculty administrator sees only applicants who applied to a programme in their own faculty. Applications link to faculties through `applicationProgrammes`.
@@ -9,32 +9,34 @@
 > - **Applicant privacy:** applicants see a decision's outcome and date but not the reasoning, and only their own audit events.
 > - **Accounts (replacing Manus OAuth):** applicants register with an email and password; registrars create staff accounts with a one-time password that must be changed at first sign-in. The first registrar is bootstrapped with `pnpm create:registrar`. Passwords follow the shared rules (10–128 characters, not common, four distinct characters, not the person's email name or name); scrypt hashes, five-attempt lockout, IP rate limits and session invalidation on password changes.
 > - **Storage:** uploads stay in a private `STORAGE_DIR` folder, declared as a Docker volume, and are served only through an authenticated, audited route.
+> - **Catalogue scope:** v1 uses only `nkozi` / `Main Campus, Nkozi`; 36 programmes are selectable plus the non-selectable postgraduate umbrella.
+> - **Two-stage decision:** faculty administrators verify academic evidence and record a recommendation; registrars alone record the final verdict, gated on a current faculty recommendation and audited when it differs.
 
 ## Goal and boundary
 
 Build an operational, human-reviewed admissions decision-support web application from the supplied October 2026 concept note and the feature-1 material already inspected. This is a separate copy in the newly initialized ASPIRE project; the original `Nsimbi-Noel/ASPIRE-` GitHub repository and its `feature-1` branch remain untouched. Do not publish the app or push changes to that upstream repository without a separate request.
 
-Use synthetic/demo records only. The supplied programme mappings are provisional proxies pending UMU approval. Unresolved or partial mappings must remain visibly provisional and must not silently become official rules. The app may recommend or explain, but it must not make admission offers or replace a committee decision. Do not treat the current sandbox or preview as approved for real applicant data.
+Use synthetic/demo records only. The supplied programme mappings are provisional proxies pending UMU approval. Unresolved or partial mappings must remain visibly provisional and must not silently become official rules. The app may recommend or explain, but it must not make admission offers; the registrar records the final verdict after the faculty has been heard. Do not treat the current sandbox or preview as approved for real applicant data.
 
 ## Implementation approach
 
 Use the initialized React + TypeScript frontend, Express/tRPC backend and managed MySQL database with Drizzle migrations. Use our own email-and-password accounts and private local file storage instead of the template's authentication and storage integrations; enforce authorization on the server for every role-specific operation and keep uploaded-file records separate from their stored objects. Build the existing TypeScript rules engine into the app as a deterministic module, retaining rule source, edition, status, approval and check traces.
 
-The first working release will support synthetic/demo intake records and the complete core workflow: applicant profile and UCE/UACE results; document upload/status and manual grade entry; per-programme screening with `ELIGIBLE`, `NOT_ELIGIBLE` and `ON_HOLD`; missing-document and manual-review reasons; programme suggestions, fit ranking and near misses; staff review queues; committee decisions; mandatory-reason overrides; applicant correction/appeal; hold re-screening; audit history; and CSV import/export. Rule versions will be reviewable and versioned; the programme catalogue will be reviewable from data files, including faculty, campuses, study modes and per-programme offerings with duration, with mapping confidence and approval status shown to staff. Existing proxy mappings will be reconciled with the newer pasted mapping rather than copied in blindly: unresolved IDs and unsupported levels must be handled explicitly, and partial matches routed to review.
+The first working release will support synthetic/demo intake records and the complete core workflow: applicant profile and UCE/UACE results; document upload/status and manual grade entry; per-programme screening with `ELIGIBLE`, `NOT_ELIGIBLE` and `ON_HOLD`; missing-document and manual-review reasons; programme suggestions, fit ranking and near misses; staff review queues; faculty recommendations followed by registrar final verdicts; mandatory-reason overrides; applicant correction/appeal; hold re-screening; audit history; and CSV import/export. Rule versions will be reviewable and versioned; the programme catalogue will be reviewable from data files, including faculty, campuses, study modes and per-programme offerings with duration, with mapping confidence and approval status shown to staff. Existing proxy mappings will be reconciled with the newer pasted mapping rather than copied in blindly: unresolved IDs and unsupported levels must be handled explicitly, and partial matches routed to review.
 
 The recommendation layer will keep eligibility separate from ranking. Implement a transparent weighted programme-fit ranking that can use the documented TOPSIS/AHP approach, but do not turn weights into eligibility thresholds. Document verification will have upload tracking, extraction/status fields, confidence and discrepancy review, with manual entry as the reliable fallback. Any OCR integration is advisory and must not alter submitted marks without human confirmation. Anomaly flags are review prompts only. A progress-prediction panel will remain unavailable/clearly marked unvalidated until approved, anonymized historical outcomes exist; no performance score will be fabricated from synthetic data. Protected characteristics may be stored only where justified for separate fairness evaluation, not used as fit or prediction inputs.
 
-Persist applicants, result records, file metadata, programme choices by id, versioned rule sets and mappings, screening runs with immutable input snapshots and per-check traces, recommendations, committee decisions, overrides, correction/appeal events, and append-only audit events; keep the programme catalogue (faculty, campuses, study modes, duration/offerings) in `data/catalogue` files. Apply role-based visibility and a retention/deletion policy that does not promise physical deletion where storage does not support it. A CSV pathway is included; external national integrations, automated offers, payments and scholarships remain out of scope.
+Persist applicants, result records, file metadata, programme choices by id, versioned rule sets and mappings, screening runs with immutable input snapshots and per-check traces, faculty recommendations, registrar final verdicts, overrides, correction/appeal events, and append-only audit events; keep the programme catalogue (faculty, campuses, study modes, duration/offerings) in `data/catalogue` files. Apply role-based visibility and a retention/deletion policy that does not promise physical deletion where storage does not support it. A CSV pathway is included; external national integrations, automated offers, payments and scholarships remain out of scope.
 
 ## Main project structure
 
-- `client/src/pages/` — applicant portal, staff dashboard, programme catalogue, case detail, rules/mappings, review and evaluation views.
+- `client/src/pages/` — applicant portal, staff dashboard, programme catalogue, case detail, rules/mappings and staff review views; dashboard counts only, with no `/evaluation` page.
 - `client/src/components/` — reusable navigation, status labels, evidence/trace panels, forms and accessible data tables.
-- `server/routers.ts` and `server/routers/` — authenticated tRPC endpoints grouped by applicant, screening, documents, committee, rules and reporting.
+- `server/routers.ts` and `server/routers/` — authenticated tRPC endpoints grouped by applicant, screening, documents, staff, rules and reporting.
 - `server/services/` — screening orchestration, mapping validation, ranking, CSV handling, audit events, document review and advisory interfaces.
 - `drizzle/schema.ts` plus `drizzle/` — application entities and additive migrations.
 - `packages/rules-engine/` or `server/rules-engine/` — pure deterministic screening logic and tests, adapted from feature-1.
-- `data/rules/` — source rule files, provisional programme mappings and synthetic demo fixtures, with provenance preserved; `data/catalogue/` — programme faculty assignments and offerings (campuses, study modes, duration), with provenance preserved.
+- `data/rules/` — source rule files and active/proposal programme mappings, with provenance preserved; no demo fixture/seeder is included yet. `data/catalogue/` — programme faculty assignments and Nkozi offerings (campuses, study modes, duration), with provenance preserved.
 - `client/src/pages/Login.tsx`, `Account.tsx` — sign-in/self-registration and the forced password-change screen.
 - `plan.md` and `TODO.md` — approved design/implementation decisions and user-visible deliverables.
 

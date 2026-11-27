@@ -27,7 +27,7 @@ The document states that its weighting system applies to all ten public universi
 | `data/rules/entry-requirements.umu-2026-27.json` | UMU general entry rules, expressed as routes |
 | `data/rules/weighting-system.public-universities-2026-27.json` | Category weights, grade points, O-level weights, selection rules |
 | `data/rules/programme-weights.2026-27.json` | Programme rule entries (essential, relevant, desirable subjects, special requirements) |
-| `data/rules/programme-mapping.umu.json` | Active UMU Nkozi programme mappings to rule entries, plus the postgraduate group with no equivalent |
+| `data/rules/programme-mapping.umu.json` | Active UMU Nkozi programme mappings to rule entries, plus the postgraduate umbrella with no supported screening mapping |
 | `data/catalogue/programme-faculties.umu-2026-27.json` | Faculty of each mapped Nkozi programme |
 | `data/catalogue/programme-offerings.umu-2026-27.json` | Nkozi campus lookup, study modes, and each mapped programme's offering rows (`campusId`, `modes`, `duration`); the postgraduate umbrella has no selectable offering |
 
@@ -43,7 +43,7 @@ The document states that its weighting system applies to all ten public universi
 The weighting system was designed to rank competing applicants for limited government places, so on its own it does not say who is eligible. ASPIRE therefore uses it in two ways:
 
 1. **Eligibility (hard rules):** UMU's general entry rules, plus any programme-specific conditions in the source (for example a Credit in Mathematics at O-level for Accounting and Finance).
-2. **Ranking and fit (advisory):** the combined weight feeds the programme matcher and can order applicants for the committee. There is no minimum weighted score and no cut-off: UMU is a private university and publishes none, so no applicant fails on score. The parameter stays in the schema, set to `null`, in case UMU ever introduces one.
+2. **Ranking and fit (advisory):** the combined weight feeds the programme matcher and can order applicants for staff review. There is no minimum weighted score and no cut-off: UMU is a private university and publishes none, so no applicant fails on score. The parameter stays in the schema, set to `null`, in case UMU ever introduces one.
 
 ## Not imported
 
@@ -61,17 +61,19 @@ Rules change between editions. Makerere's Computer Science weighting differs bet
 
 ## Mapping quality
 
+Counts below cover the 36 selectable Nkozi programmes (27 bachelor's):
+
 | Match | Meaning | Count |
 | --- | --- | --- |
-| exact | same or near-identical programme | 11 |
-| close | same discipline, different name or scope | 14 |
-| partial | overlapping discipline; a starting guess | 5 |
+| exact | same or near-identical programme | 16 |
+| close | same discipline, different name or scope | 17 |
+| partial | overlapping discipline; a starting guess | 3 |
 
-UMU must confirm each mapping. Nine groups have no equivalent in the source (including all diplomas, certificates and postgraduate programmes) and use UMU's general entry rules only.
+These are primary-rule counts. Counting all rule references, including alternates, gives 16 exact, 19 close and 5 partial. UMU must confirm each mapping. One group (`umu-postgraduates`, covering Masters, postgraduate diplomas and PhDs) has no supported screening mapping and is not selectable; diplomas and certificates now have dedicated rule IDs.
 
 ## Verification still needed
 
-- [ ] Check every entry in `programme-weights.2026-27.json` against the PDF. Entries marked `medium` (Statistics) are known to be ambiguous.
+- [ ] Check the two eligibility-affecting entries `must-15` and `mak-91` against the PDF, then review the remaining `medium`-confidence entries (including Statistics and the sub-degree rules).
 - [ ] Clarify how "one or two better done" is weighted (Business Administration, Accounting).
 - [ ] Confirm each programme mapping with UMU and confirm the imported campus/study-mode/duration offerings (assigned by project from the brochure, pending UMU confirmation).
 - [ ] Obtain UMU's approval to use the adopted rules, or its own rules.

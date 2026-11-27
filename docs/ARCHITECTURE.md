@@ -6,7 +6,7 @@ React client, Express and tRPC server, Drizzle ORM, MySQL. Rules logic is a pure
 
 | Path | Contents |
 | --- | --- |
-| `client/src/pages`, `components` | Applicant portal, staff queue, case detail, programmes, document review, rule governance, evaluation; sign-in, account and user-management pages |
+| `client/src/pages`, `components` | Applicant portal, staff queue, case detail, programmes, document review, rule governance and dashboard counts (no `/evaluation` page); sign-in, account and user-management pages |
 | `server/routers/auth.ts` | Self-service register, sign-in, sign-out and password change; login lockout and IP rate limits |
 | `server/routers/aspire.ts` | All ASPIRE procedures (profile, catalog, rules, applications, screening, documents, staff, applicant, evaluation), including registrar account creation, reset and deactivation |
 | `server/services/passwords.ts`, `server/services/rateLimit.ts` | scrypt hashing and password rules; in-memory sliding-window limiter |
@@ -18,7 +18,7 @@ React client, Express and tRPC server, Drizzle ORM, MySQL. Rules logic is a pure
 | `server/services/ruleSetStore.ts` | Rule version selection, validation, approval text, seeding |
 | `server/services/screeningService.ts` | Programme catalogue (faculty, campuses, study modes, per-programme offerings/duration), mappings, screening orchestration; exposes `listCampuses()` and `listStudyModes()` |
 | `server/services/programmeChoices.ts` | The programme choices an application is for |
-| `server/services/committeeDecisionPolicy.ts` | When a decision may be recorded |
+| `server/services/committeeDecisionPolicy.ts` | When a registrar final verdict may be recorded |
 | `server/rules-engine` | Pure screening logic (no I/O, clock or randomness) |
 | `data/rules`, `data/catalogue` | UMU general rules, adopted rules, mappings, programme-to-faculty assignments, and programme offerings (campuses, study modes, duration) |
 | `drizzle` | Schema and migrations |

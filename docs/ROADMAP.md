@@ -6,7 +6,7 @@ Based on the five-month workplan in Section 10 of the concept note.
 | --- | --- |
 | 1 | Study admission rules and past intakes; agree scope with the admissions office; request data and approvals; review related work |
 | 2 | Model rules and program requirements; build rules engine and database; set up anonymous or synthetic test data |
-| 3 | Build program matcher, applicant form and committee dashboard; begin document verification |
+| 3 | Build programme matcher, applicant form and staff case dashboard with faculty recommendations and registrar verdicts; begin document verification |
 | 4 | Train and evaluate advisory models; add explanations and audit log; test with admissions staff |
 | 5 | Run evaluation against past intakes; fix issues; write up results; prepare demo and handover |
 
@@ -17,7 +17,7 @@ ML comes last on purpose. If time gets tight, a complete and defensible screenin
 1. Foundations: repo, database schema, auth and roles
 2. Rules engine with tests and a synthetic applicant generator
 3. Program matcher (TOPSIS + AHP)
-4. Applicant form and committee dashboard (filters, reasons, overrides, audit trail)
+4. Applicant form and staff case dashboard (filters, faculty recommendation, registrar verdict, audit trail)
 5. Hold workflow: auto re-screen, deadlines, notifications
 6. Document verifier (manual entry with confidence flag first, then OCR)
 7. Advisory models: progress predictor and anomaly detector, each against a baseline

@@ -84,7 +84,7 @@ $env:TEST_DATABASE_URL="mysql://user:password@127.0.0.1:3306/aspire_test"; pnpm 
 
 ## Upgrading an existing database
 
-Migration `0003` reduces the roles: `officer` and `committee` become `faculty_administrator` (with no faculty, so they see nothing until you assign one) and `administrator` becomes `registrar`. It also seeds the 11 faculties.
+Migration `0003` reduces the roles (`officer`/`committee` to `faculty_administrator`, `administrator` to `registrar`) and seeds the 11 faculties; `0004` adds account columns; `0005` adds campus/study-mode choice columns to `applicationProgrammes`; `0006` adds `facultyRecommendations`. Assign a faculty to every faculty administrator or they will see nothing.
 
 ## Documentation
 

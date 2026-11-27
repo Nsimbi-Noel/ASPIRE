@@ -26,9 +26,9 @@ Design for compliance with Uganda's **Data Protection and Privacy Act, 2019**:
 
 ## Human oversight
 
-- ASPIRE is decision support. The **committee decides**.
+- ASPIRE is decision support. Faculty administrators verify evidence and record a recommendation; the **registrar records the final verdict**. A differing verdict must carry an audited reason.
 - Every override is logged with a reason.
-- Applicants get a clear explanation of any outcome and a route to **appeal or correct** information.
+- Applicants get a short screening status, their final verdict outcome/date, and a route to **appeal or correct** information; internal reasoning is not shown.
 
 ## Known limitations to state in the write-up
 

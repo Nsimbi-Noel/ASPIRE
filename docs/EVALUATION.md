@@ -4,7 +4,7 @@ Derived from Section 11 of the concept note.
 
 | Measure | How it is assessed |
 | --- | --- |
-| Rule correctness | Compare engine outcomes with committee decisions on past intakes; review every disagreement |
+| Rule correctness | Compare engine outcomes with past registrar final verdicts; review every disagreement |
 | Hold accuracy | Share of applicants correctly placed on hold with the right missing-document list |
 | Document extraction | Field-level accuracy on real or realistic result slips |
 | Progress prediction | Out-of-time test: train on earlier intakes, test on later ones, against a baseline using aggregate points alone |
@@ -15,7 +15,7 @@ Derived from Section 11 of the concept note.
 ## Principles
 
 - If an ML component does not beat its baseline, **report that as a finding** and keep the simpler method.
-- Disagreements between the engine and past committee decisions are analysed, not hidden: they may reveal rule errors, rule changes between intakes, or committee discretion.
+- Disagreements between the engine and past registrar final verdicts are analysed, not hidden: they may reveal rule errors, rule changes between intakes, or human discretion.
 
 ## Data caveat
 

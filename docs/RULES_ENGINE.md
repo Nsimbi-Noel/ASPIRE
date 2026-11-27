@@ -7,7 +7,7 @@ Derived from Section 5 of the concept note. The rules engine is the core of ASPI
 | Academic requirements met | All required documents submitted | Outcome |
 | --- | --- | --- |
 | No | Any | Not eligible |
-| Yes | Yes | Eligible, forwarded to the admissions committee |
+| Yes | Yes | Eligible, forwarded to staff review for a faculty recommendation and registrar verdict |
 | Yes | No | On hold, missing documents listed |
 
 ## 2. Evaluation order
@@ -60,26 +60,30 @@ Example shape (**placeholder values; replace with the university's published req
 }
 ```
 
-## 5. Rule types (initial set, to be confirmed against real requirements)
+## 5. Core compiled rule types
 
 | Type | Meaning |
 | --- | --- |
-| `MIN_PRINCIPAL_PASSES` | At least N principal passes |
-| `REQUIRED_SUBJECTS_ANY_OF` | At least N of a list of subjects at or above a grade |
-| `REQUIRED_SUBJECTS_ALL_OF` | Every listed subject at or above a grade |
-| `MIN_WEIGHTED_POINTS` | Weighted points total at or above a threshold |
-| `OLEVEL_MIN_GRADE` | Minimum O-level grade in a named subject |
+| `MIN_PRINCIPAL_PASSES` | At least N principal passes, optionally from one sitting |
+| `MIN_SUBSIDIARY_PASSES` | At least N subsidiary passes |
+| `MIN_UCE_PASSES` | At least N UCE passes, optionally from one sitting |
+| `HAS_UCE_RESULTS` | UCE results exist (compiled from `UCE_OR_EQUIVALENT`) |
+| `QUALIFICATION_CLASS_AT_LEAST` | Diploma, certificate or HEAC class threshold |
+| `SUBJECTS_RELEVANT_TO_PROGRAMME` | Passes must be in subjects relevant to the programme |
+| `MATHS_CREDIT_REQUIREMENT` | Credit in Sub-Maths (A-level) or Mathematics (O-level) |
+| `OLEVEL_OVERALL_GRADE_NOT_IN` | Excludes overall O-level grades such as 7, 9, X, Y, Z |
 
-The set of rule types is fixed in code. Adding a type needs a small code change, which keeps every rule testable and explainable.
+The set of compiled rule types is fixed in code. Adding one needs a small code change, which keeps every rule testable and explainable.
 
 ## 6. Explanations
 
 Every check records `expected`, `actual` and `gap`. These feed:
 
-- applicant-facing explanations of any outcome,
-- the committee dashboard,
-- near-miss detection in the program matcher,
+- staff-facing check explanations in the case view,
+- near-miss detection in the programme matcher,
 - the audit log.
+
+Applicants see a short screening status and the final verdict outcome/date, not internal check traces.
 
 ## 7. Hold handling
 
@@ -131,18 +135,15 @@ Sub-degree weighting is also advisory. Diploma and HEAC UACE routes cap selectio
 
 The result is a score with a breakdown, stored in the trace. It feeds ranking. `minimum_weighted_points` is `null` until UMU sets a threshold, and when it is `null` no applicant fails on score alone.
 
-## 12. Additional rule types
+## 12. Additional source-file rule labels
 
-| Type | Meaning |
+| Label | Meaning in v1 |
 | --- | --- |
-| `SAME_SITTING` | Passes obtained at the same sitting |
-| `MIN_UCE_PASSES` | At least N UCE passes |
-| `MIN_SUBSIDIARY_PASSES` | At least N subsidiary passes |
-| `SUBJECTS_RELEVANT_TO_PROGRAMME` | Passes must be in subjects relevant to the programme |
-| `DIPLOMA_CLASS_AT_LEAST` | Diploma classification threshold |
-| `OLEVEL_OVERALL_GRADE_NOT_IN` | Excludes overall O-level grades such as 7, 9, Y, Z |
-| `MATHS_CREDIT_REQUIREMENT` | Credit in Sub-Maths (A-level) or Mathematics (O-level) |
-| `WEIGHTED_SCORE` | Computes the combined weight for ranking |
+| `SAME_SITTING` | Folded into the relevant pass rules |
+| `UCE_OR_EQUIVALENT` | Compiled to `HAS_UCE_RESULTS` |
+| `DIPLOMA_CLASS_AT_LEAST`, `CERTIFICATE_CLASS_AT_LEAST`, `HEAC_GRADE_AT_LEAST` | Compiled to `QUALIFICATION_CLASS_AT_LEAST` |
+| `MIN_WORK_EXPERIENCE_YEARS`, `HAS_MASTERS`, `PASS_GAT`, `DEGREE_CLASS_AT_LEAST`, `PROFESSIONAL_QUALIFICATION` | Present in source data but outside v1 screening |
+| `WEIGHTED_SCORE` | Advisory combined weight used for ranking, not an eligibility threshold |
 
 ## 13. Rule set status
 
@@ -157,6 +158,6 @@ Differences from the earlier sections of this document:
 - **Three check statuses.** Each check is `PASS`, `FAIL` or `REVIEW`. `REVIEW` means the engine cannot decide (for example subject relevance for diploma entry, or no data to test a Maths credit).
 - **Refined invariant.** Section 8 says failing academics never yields `ON_HOLD`. In the implementation this applies to a *definite* failure. An undecidable check yields `ON_HOLD` with hold reason `MANUAL_REVIEW`, so the engine never auto-approves or auto-rejects on something it cannot decide.
 - **Hold reasons.** `ON_HOLD` carries `MISSING_DOCUMENTS`, `MANUAL_REVIEW`, or both.
-- **Score timing.** The weighted score is advisory and is only computed when the applicant has UACE results and has not definitely failed academics.
-- **"One or two better done".** Resolved by the rule that at most three principal subjects carry a weight, so no separate ambiguity handling is needed.
+- **Score timing.** The weighted score is advisory and is computed whenever the rule set has weighting; UCE and qualification-standing routes score without UACE results.
+- **"One or two better done".** Resolved by selector caps and category limits; diploma/HEAC UACE routes cap at one essential and two relevant subjects.
 - **Option.** `requireUceForDegrees` toggles the 5-UCE-pass rule for degrees while the decision is open.

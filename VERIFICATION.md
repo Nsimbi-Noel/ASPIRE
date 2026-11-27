@@ -1,6 +1,21 @@
 # Verification report
 
-Run on 19 November 2026 in the `C:\Users\DELL\Desktop\ASPIRE-clone` sandbox after the account replacement, the lost edits and the new test suites.
+Historical run on 19 November 2026 in the `C:\Users\DELL\Desktop\ASPIRE-clone` sandbox after the account replacement, the lost edits and the new test suites.
+
+## Final run on 27 November 2026 (current workspace)
+
+Using `C:\Users\edward_admin\Desktop\ASPIRE\node_modules\.bin\pnpm.cmd` (global `pnpm` is not on PATH):
+
+| Check | Result |
+| --- | --- |
+| `pnpm check` | passed |
+| `pnpm test` | 18 files passed, 120 tests passed; 4 integration files skipped by design (76 tests) |
+| `pnpm exec vitest run server/aspire.access.integration.test.ts` | 40 passed |
+| `pnpm exec vitest run server/aspire.rules.integration.test.ts` | 17 passed |
+| `pnpm db:migrate` | migration `0006` applied successfully |
+| `pnpm build` | passed; 1,723 modules transformed; `dist/index.js` 282.7 kB |
+| `pnpm e2e:production` | 8 HTTP checks passed |
+| `git diff --check` | no whitespace errors; CRLF conversion warnings only |
 
 ## Passed here
 
@@ -8,14 +23,14 @@ Run on 19 November 2026 in the `C:\Users\DELL\Desktop\ASPIRE-clone` sandbox afte
 | --- | --- |
 | `pnpm install --frozen-lockfile` | completed |
 | `pnpm check` (TypeScript) | passed |
-| `pnpm test` | 15 files passed, 103 tests passed, 0 failed; 4 integration files skipped by design (historical; latest run below) |
+| `pnpm test` | 15 files passed, 103 tests passed, 0 failed; 4 integration files skipped by design (historical; superseded above) |
 | `pnpm build` (Vite client + esbuild server) | passed |
 | `E2E_HEALTH_ONLY=1 pnpm e2e:production` | production bundle starts, serves the built client, answers `/api/health`, refuses signed-out document access |
 | `server/deployment.test.ts` | confirms the Dockerfile installs `poppler-utils` and `tesseract-ocr`, declares the `/app/storage` volume, and that `storage/` and `.env` are ignored |
 | `server/auth.logout.test.ts` | confirms the new `aspire_session` cookie is cleared with same-site/lax, HTTP-only, Secure options — the old Manus-cookie assertion is gone |
 | Type-check of all test files with a temporary tsconfig | passed (temporary file removed afterwards) |
 
-## Re-verified on 25 November 2026 (current workspace)
+## Historical re-verification on 25 November 2026
 
 `pnpm` was not on PATH in this shell, so `npx --no-install pnpm ...` was used for the package scripts; the checks below record the underlying commands where they were invoked directly.
 
@@ -25,7 +40,7 @@ Run on 19 November 2026 in the `C:\Users\DELL\Desktop\ASPIRE-clone` sandbox afte
 | `node node_modules/vitest/vitest.mjs run` | 16 files passed, 106 tests passed, 0 failed; 4 integration files skipped by design (64 tests) |
 | `node node_modules/vite/bin/vite.js build` | passed; 1,723 modules transformed |
 | `node node_modules/esbuild/bin/esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist` | passed; `dist/index.js` 240.3 kB |
-| `server/services/programmeOfferings.test.ts` | 3 tests confirm every mapped programme has offering rows, campus/mode ids are known, catalogue programmes expose campus/study-mode details, and umbrella entries remain non-selectable |
+| `server/services/programmeOfferings.test.ts` | 3 tests confirmed offering rows, known campus/mode ids and non-selectable umbrellas; the final run has 4 tests and also asserts Nkozi-only offerings |
 
 ## Excluded from the UI in this pass
 
@@ -35,14 +50,11 @@ Run on 19 November 2026 in the `C:\Users\DELL\Desktop\ASPIRE-clone` sandbox afte
 - **Provisional mapping indicators:** `rules.proxyStatus` and the shell's provisional pill are no longer shown to applicants. Governance is registrar-only.
 - **Unused presentation code:** the theme switcher is not exposed (the app stays in the light UMU theme), and the unused `Home.tsx` template plus unused portions of the shadcn component library remain in source but are not routed or surfaced in the adapted shell.
 
-## Not run here (no MySQL or document tools in the sandbox)
+## Not fully passing or skipped here
 
-These suites are written, type-checked and skipped rather than failed when their prerequisites are missing. The sandbox has no MySQL server, no `tesseract`, `pdftotext` or `pdftoppm`, and external downloads were too slow to install them.
-
-- `server/auth.integration.test.ts` — register, sign-in, lockout, password change, CLI/reset, deactivation, forced password change (needs MySQL).
-- `server/documents.http.integration.test.ts` — real Express server over HTTP, generated PDF/PNG, `pdftotext`/`tesseract` reading, and downloads by applicant, project owner, in-scope staff, out-of-scope staff and signed-out users (needs MySQL and the three tools).
-- `server/aspire.access.integration.test.ts`, `server/aspire.rules.integration.test.ts` — the existing scoping and rule-version suites (need MySQL).
-- Full `pnpm e2e:production` — needs MySQL; the database-free smoke mode above passed.
+- `server/auth.integration.test.ts` — ran against MySQL with 8 passed and 3 failed; the failures are the existing baseline defects and were not changed in this work.
+- `server/documents.http.integration.test.ts` — written and skipped because `pdftotext`, `pdftoppm` and `tesseract` are unavailable here. It covers real Express HTTP, generated PDF/PNG, extraction and downloads by applicant, project owner, in-scope staff, out-of-scope staff and signed-out users.
+- Browser click-through and Docker image verification still need a person, as noted below.
 
 To run them on a machine with the prerequisites:
 
